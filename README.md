@@ -16,24 +16,27 @@ julia> init(:H2, 1000.0, 1.59e6, H2 = 0.29, N2 = 0.56, O2 = 0.15)
 
 julia> gas.initial.temperature # T
 1000.0
- 
-julia> gas.initial.mass_fractions # Y
+
+julia> gas.mechanism.molecular_weight # W
 10-element Vector{Float64}:
- 0.0   # H
- 0.29  # H2
- 0.0   # O
- 0.15  # O2
- 0.0   # OH
- 0.0   # H2O
- 0.56  # N2
- 0.0   # HO2
- 0.0   # H2O2
- 0.0   # AR
+  1.00784  # H
+  2.01568  # H2
+ 15.9994   # O
+ 31.9988   # O2
+ 17.00724  # OH
+ 18.01508  # H2O
+ 28.0134   # N2
+ 33.00664  # HO2
+ 34.01448  # H2O2
+ 39.948    # AR
 ```
 ### Chemical Kinetics
 ```julia
 julia> step!(gas, gas.initial.mass_fractions, gas.initial.temperature)
 # Computes state and intermediate variables based on the given mass fractions and temperature
+
+julia> gas.current.temperature # equals initial temperature
+1000.0
 
 julia> gas.intermediate.production_rate # ω̇
 10-element Vector{Float64}:
