@@ -14,10 +14,10 @@ julia> using Apophis
 julia> init(:H2, 1000.0, 1.59e6, H2 = 29, N2 = 56, O2 = 15)
 # Creates an instance of the Gas struct based on the given mechanism and initial conditions
 
-julia> gas.initial.temperature
+julia> gas.initial.temperature # T
 1000.0
  
-julia> gas.initial.mass_fractions
+julia> gas.initial.mass_fractions # Y
 10-element Vector{Float64}:
  0.0   # H
  0.29  # H2
@@ -35,7 +35,7 @@ julia> gas.initial.mass_fractions
 julia> step!(gas, gas.initial.mass_fractions, gas.initial.temperature)
 # Computes state and intermediate variables based on the given mass fractions and temperature
 
-julia> gas.intermediate.production_rate
+julia> gas.intermediate.production_rate # ω̇
 10-element Vector{Float64}:
   2.2300800003459409e-10
  -2.2300796859512652e-10
