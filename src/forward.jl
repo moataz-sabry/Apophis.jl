@@ -253,7 +253,7 @@ function rates((; current, intermediate, mechanism)::Gas)
     return nothing
 end
 
-function equilibrate(gas::Gas{K}, Y::AbstractVector{K}, T::K) where {K<:Real} ### AbstractVector allocates +1
+function step!(gas::Gas{K}, Y::AbstractVector{K}, T::K) where {K<:Real} ### AbstractVector allocates +1
 
     #gas.current = gas.initial
     gas.current.mass_fractions = Y
@@ -275,7 +275,7 @@ function IdealGasReactor!(du, u, p, t) #DGL
 
     Y = view(u, ns)
     T = last(u)
-    equilibrate(gas, Y, T)
+    step!(gas, Y, T)
 
     Ẏ = intermediate.mass_change_rate
     Ṫ = only(intermediate.temperature_change_rate)
@@ -298,8 +298,3 @@ function simulate(t, gas::Gas; maxis=1e5,
 
     return solution
 end
-#     j = indicies[i]
-#     Y[j] = fractions[i]
-# end
-
-# gas.initial_temperature = temperature
