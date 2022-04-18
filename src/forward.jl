@@ -298,39 +298,6 @@ function simulate(t, gas::Gas; maxis=1e5,
 
     return solution
 end
-
-######backup###
-
-# #isdefined(Apophis, :mechanism) || readmechanism(mech)
-# readmechanism(mech)
-
-# #if isdefined(Apophis, :intermediate) == false ## different intermediates for different mechanisms
-# #expr = :(intermediate = Intermediate(Main.$mech))
-# #expr = :(const intermediate = Intermediate($mech))
-# expr = :(intermediate = Intermediate{$K}(mechanism))
-# eval(expr)
-# #end
-
-# #if isdefined(Apophis, :current) == false ## different currents for different mechanisms
-# #expr = :(const current = current($mech))
-# expr = :(current = current{$K}(mechanism))
-# eval(expr)
-# #end
-# expr = :(gas = Gas{$K}(:H2, current, intermediate, mechanism))
-# eval(expr)
-
-# species = String.(first.(collect(s)))
-# fractions = last.(collect(s)) / 100
-# ∑fractions = sum(fractions)
-# #indicies = indexin(species, eval(mech).species)
-# indicies = indexin(species, mechanism.species)
-# #W⁻¹ = eval(mech).inverse_molecular_weight
-
-# in(nothing, indicies) && error("one or more of species are not part of $(mech) mechanism")
-# ∑fractions == one(K) || @warn "∑Y = $(∑fractions) ≠ 1!"
-
-# Y = gas.initial_mass_fractions
-# for i in eachindex(indicies)
 #     j = indicies[i]
 #     Y[j] = fractions[i]
 # end
