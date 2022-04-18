@@ -5,7 +5,7 @@ function init(mech::Symbol, temperature::K, pressure::K=Pₐ; s...) where {K<:Fl
     eval(gasexpr)
 
     species = String.(first.(collect(s)))
-    fractions = last.(collect(s)) / 100
+    fractions = last.(collect(s))
     ∑fractions = sum(fractions)
 
     indicies = indexin(species, mechanism.species)
