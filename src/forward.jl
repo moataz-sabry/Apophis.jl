@@ -286,7 +286,7 @@ function IdealGasReactor!(du, u, p, t) #DGL
     return nothing
 end
 
-function simulate(t, gas::Gas; maxis=1e5,
+function equilibrate(t, gas::Gas; maxis=1e5,
     abs::T=1e-10, rel::T=1e-10) where {T<:Real}
 
     span = (0.0, T(t))
