@@ -1,5 +1,5 @@
 # Apophis
-Chemistry Analysis Package
+A package for the sensitivity analysis of gas-phase chemical and kinetics
 
 ## Installation
 ```julia
@@ -57,3 +57,5 @@ julia> gas.intermediate.production_rate
   0.0
   0.0
 ```
+## References
+- [Chemkin User Manual](https://www3.nd.edu/~powers/ame.60636/chemkin2000.pdf)
