@@ -47,6 +47,10 @@ julia> gas.intermediate.production_rate # ω̇
   2.2300793715565893e-10
   0.0
   0.0
+  
+julia> gas.intermediate.temperature_change_rate # Ṫ
+1-element Vector{Float64}:
+ -0.12101709573654974
 ```
 ## References
 - [Chemkin User Manual](https://www3.nd.edu/~powers/ame.60636/chemkin2000.pdf)
