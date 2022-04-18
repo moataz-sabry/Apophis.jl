@@ -35,9 +35,6 @@ julia> gas.mechanism.molecular_weight # W
 julia> step!(gas, gas.initial.mass_fractions, gas.initial.temperature)
 # Computes state and intermediate variables based on the given mass fractions and temperature
 
-julia> gas.current.temperature # equals initial temperature
-1000.0
-
 julia> gas.intermediate.production_rate # ω̇
 10-element Vector{Float64}:
   2.2300800003459409e-10
