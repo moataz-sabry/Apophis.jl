@@ -16,19 +16,28 @@ julia> init(:H2, 1000.0, 1.59e6, H2 = 29, N2 = 56, O2 = 15)
 
 julia> gas.initial.temperature
 1000.0
-
+ "H"
+ "H2"
+ "O"
+ "O2"
+ "OH"
+ "H2O"
+ "N2"
+ "HO2"
+ "H2O2"
+ "AR"
 julia> gas.initial.mass_fractions
 10-element Vector{Float64}:
- 0.0
- 0.29
- 0.0
- 0.15
- 0.0
- 0.0
- 0.56
- 0.0
- 0.0
- 0.0
+ 0.0   # H
+ 0.29  # H2
+ 0.0   # O
+ 0.15  # O2
+ 0.0   # OH
+ 0.0   # H2O
+ 0.56  # N2
+ 0.0   # HO2
+ 0.0   # H2O2
+ 0.0   # AR
 ```
 ### Chemical Kinetics
 ```julia
