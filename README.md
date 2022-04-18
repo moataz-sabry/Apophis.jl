@@ -11,7 +11,7 @@ Pkg.add(path=".../Apophis")
 ```julia
 julia> using Apophis
 
-julia> init(:H2, 1000.0, 1.59e6, H2 = 29, N2 = 56, O2 = 15)
+julia> init(:H2, 1000.0, 1.59e6, H2 = 0.29, N2 = 0.56, O2 = 0.15)
 # Creates an instance of the Gas struct based on the given mechanism and initial conditions
 
 julia> gas.initial.temperature # T
