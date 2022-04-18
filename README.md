@@ -52,5 +52,13 @@ julia> gas.intermediate.temperature_change_rate # Ṫ
 1-element Vector{Float64}:
  -0.12101709573654974
 ```
+### Chemical Equilibrium
+```julia
+julia> equilibrate(gas)
+# Sets a gas mixture to a state of chemical equilibrium
+
+julia> gas.current.temperature
+1575.8191033237333
+```
 ## References
 - [Chemkin User Manual](https://www3.nd.edu/~powers/ame.60636/chemkin2000.pdf)
