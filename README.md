@@ -26,6 +26,7 @@ julia> gas.initial.temperature
  "HO2"
  "H2O2"
  "AR"
+ 
 julia> gas.initial.mass_fractions
 10-element Vector{Float64}:
  0.0   # H
