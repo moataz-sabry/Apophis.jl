@@ -4,7 +4,7 @@ export gas
 export init
 export step!
 export jac
-export simulate
+export equilibrate
 
 #import BenchmarkTools: @btime ## only for tests?
 using LinearAlgebra
