@@ -20,14 +20,14 @@ julia> gas.initial.temperature # T
 julia> gas.mechanism.molecular_weight # W
 10-element Vector{Float64}:
   1.00784  # H
-  2.01568  # H2
+  2.01568  # H₂
  15.9994   # O
- 31.9988   # O2
+ 31.9988   # O₂
  17.00724  # OH
- 18.01508  # H2O
- 28.0134   # N2
- 33.00664  # HO2
- 34.01448  # H2O2
+ 18.01508  # H₂O
+ 28.0134   # N₂
+ 33.00664  # HO₂
+ 34.01448  # H₂O₂
  39.948    # AR
 ```
 ### Chemical Kinetics
