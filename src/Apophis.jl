@@ -2,7 +2,7 @@ module Apophis
 
 export gas
 export init
-export equilibrate
+export step!
 export jac
 export simulate
 
