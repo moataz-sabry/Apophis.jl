@@ -1,3 +1,4 @@
+using Apophis
 using Test
 
 @testset verbose = true "Apophis.jl" begin
