@@ -54,7 +54,7 @@ julia> gas.intermediate.temperature_change_rate # Ṫ [K/s]
 ```
 ### Chemical Equilibrium
 ```julia
-julia> equilibrate(gas)
+julia> equilibrate(4.0, gas)
 # Sets a gas mixture to a state of chemical equilibrium
 
 julia> gas.current.temperature
