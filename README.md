@@ -7,7 +7,7 @@ using Pkg
 Pkg.add(path=".../Apophis")
 ```
 ## Quick Start
-### Mechanism Reader
+### Reading a Mechanism
 ```julia
 julia> using Apophis
 
