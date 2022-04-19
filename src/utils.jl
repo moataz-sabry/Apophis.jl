@@ -274,38 +274,38 @@ function extractthermo(specieslist, thermoblock) ## extracts the thermodynamic c
     return moleweight, midtemperatures, highcoeffmatrix, lowcoeffmatrix
 end
 
-function readmechanism(title; print=false)
+# function readmec(title; print=false)
 
-    #title = Symbol(title) ##???
-    if isdefined(Apophis, title) == false
-        strng = string(title)
-        #expr = :(const $title = mechanism($strng))
-        expr = :(mechanism = mechan($strng))
-        eval(expr)
-        #Base.eval(Main, expr)
-    end
+#     #title = Symbol(title) ##???
+#     #if isdefined(Apophis, title) == false
+#     strng = string(title)
+#     #expr = :(const $title = mechanism($strng))
+#     expr = :(mechanism = mechan($strng))
+#     eval(expr)
+#     #Base.eval(Main, expr)
+#     #end
 
-    if print == true
-        #exprs = title
-        #exprs = :(Main.$title)
-        #mechanism = eval(exprs)
-        println(title, ":", "\t$(length(mechanism.elements)) elements", "\t$(length(mechanism.species)) species", "\t$(length(mechanism.reactions)) reactions")
-        println("\t----------", "\t----------", "\t-------------")
-        n = 3
-        for i in 1:n
-            println("\t$(mechanism.elements[i])\t", "\t$(mechanism.species[i])\t", "\t$(mechanism.reactions[i])")
-            i == n && println("\t...\t", "\t...\t", "\t...")
-        end
-    end
-    return nothing
-end
+#     if print == true
+#         #exprs = title
+#         #exprs = :(Main.$title)
+#         #mechanism = eval(exprs)
+#         println(title, ":", "\t$(length(mechanism.elements)) elements", "\t$(length(mechanism.species)) species", "\t$(length(mechanism.reactions)) reactions")
+#         println("\t----------", "\t----------", "\t-------------")
+#         n = 3
+#         for i in 1:n
+#             println("\t$(mechanism.elements[i])\t", "\t$(mechanism.species[i])\t", "\t$(mechanism.reactions[i])")
+#             i == n && println("\t...\t", "\t...\t", "\t...")
+#         end
+#     end
+#     return nothing
+# end
 
-function mechan(title) ## main function, calls previous functions in order
+function readmechanism(title) ## main function, calls previous functions in order
 
-    mechanism_path = "/Users/sabry/Developer/Apophis/mechanisms/" ## ERROR, const path
-    mech_file_path = mechanism_path * "$(title)_mech.dat"
-    thermo_file_path = mechanism_path * "$(title)_thermo.dat"
-    #trans_file_path = mechanism_path * "$(title)_trans.dat"
+    mechanism_path = pkgdir(Apophis, "mechanisms")
+    mech_file_path = mechanism_path * "/$(title)_mech.dat"
+    thermo_file_path = mechanism_path * "/$(title)_thermo.dat"
+    #trans_file_path = mechanism_path * "/$(title)_trans.dat"
 
     mech_data = readfile(mech_file_path)
 
