@@ -1,6 +1,6 @@
 using Test
 
-@testset verbose = true "Apophis.jl" 
+@testset verbose = true "Apophis.jl" begin
 
     @testset "H2" begin
         H2 = readmechanism(:H2)
