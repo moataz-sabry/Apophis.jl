@@ -5,6 +5,7 @@ export init
 export step!
 export jac
 export equilibrate
+export readmechanism
 
 #import BenchmarkTools: @btime ## only for tests?
 using LinearAlgebra
