@@ -277,13 +277,13 @@ end
 function readmechanism(title; print=false)
 
     #title = Symbol(title) ##???
-    if isdefined(Apophis, title) == false
+    #if isdefined(Apophis, title) == false
         strng = string(title)
         #expr = :(const $title = mechanism($strng))
         expr = :(mechanism = mechan($strng))
         eval(expr)
         #Base.eval(Main, expr)
-    end
+    #end
 
     if print == true
         #exprs = title
