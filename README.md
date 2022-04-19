@@ -7,10 +7,22 @@ using Pkg
 Pkg.add(path=".../Apophis")
 ```
 ## Quick Start
-### Setting the State
+### Mechanism Reader
 ```julia
 julia> using Apophis
 
+julia> readmechanism(:GRI3, print = true)
+# Creates an instance of the Mechanism struct based on the given mechanism name
+
+GRI3:	5 elements	53 species	325 reactions
+	----------	----------	-------------
+	O		H2		O+H2<=>H+OH
+	H		H		O+HO2<=>OH+O2
+	C		O		O+H2O2<=>OH+HO2
+	...		...		...
+```
+### Setting the State
+```julia
 julia> init(:H2, 1000.0, 1.59e6, H2 = 0.29, N2 = 0.56, O2 = 0.15)
 # Creates an instance of the Gas struct based on the given mechanism and initial conditions
 
