@@ -1,7 +1,9 @@
 function init(mech::Symbol, temperature::K, pressure::K=Pₐ; s...) where {K<:Float64}
 
-    mechanism = readmechanism(mech)
-    gasexpr = :(gas = Gas{$K}(:H2, $mechanism))
+    strng = string(mech)
+    expr = :(mechanism = readmechanism($strng))
+    eval(expr)
+    gasexpr = :(gas = Gas{$K}(:H2, mechanism))
     eval(gasexpr)
 
     species = String.(first.(collect(s)))
@@ -41,7 +43,9 @@ end
 
 function init(mech::Symbol, temperature::K, pressure::K, mass_fractions) where {K<:Num}
 
-    readmechanism(mech)
+    strng = string(mech)
+    expr = :(mechanism = readmechanism($strng))
+    eval(expr)
     gasexpr = :(gas = Gas{$K}(:H2, mechanism))
     eval(gasexpr)
 
@@ -270,7 +274,7 @@ end
 
 function IdealGasReactor!(du, u, p, t) #DGL
 
-    (; mechanism, intermediate) = p
+    ((; mechanism, intermediate), Ṫs, ts) = p
     ns = eachindex(mechanism.species)
 
     Y = view(u, ns)
@@ -283,18 +287,35 @@ function IdealGasReactor!(du, u, p, t) #DGL
     du[ns] = Ẏ
     du[end] = Ṫ
 
+    push!(Ṫs, Ṫ)
+    push!(ts, t)
+
     return nothing
 end
 
-function equilibrate(t, gas::Gas; maxis=1e5,
+function equilibrate(t, gas; maxis=1e5,
     abs::T=1e-10, rel::T=1e-10) where {T<:Real}
 
+    Ṫs = Float64[]
+    ts = Float64[]
+
     span = (0.0, T(t))
-    p = gas
+    p = (gas, Ṫs, ts)
+
     uₒ = vcat(gas.initial.mass_fractions, gas.initial.temperature)
 
     ODE = ODEProblem(IdealGasReactor!, uₒ, span, p)
     solution = solve(ODE, CVODE_BDF(), abstol=abs, reltol=rel, maxiters=Int(maxis))
 
-    return solution
+    Tₛ = solution.u[begin][end]
+    Tₑ = solution.u[end][end]
+
+    maxval, maxind = findmax(Ṫs)
+
+    ΔT = Tₑ - Tₛ
+
+    tᵣ = ΔT / maxval
+    tᵢ = ts[maxind]
+
+    return solution, tᵣ
 end
