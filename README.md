@@ -12,7 +12,7 @@ Pkg.add(path=".../Apophis")
 julia> using Apophis
 
 julia> readmechanism(:GRI3, print = true)
-# Creates an instance of the Mechanism struct based on the given mechanism name
+# Creates an instance of the Mechanism struct based on the given mechanism data files
 
 GRI3:	5 elements	53 species	325 reactions
 	----------	----------	-------------
