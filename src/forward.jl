@@ -1,7 +1,7 @@
 function init(mech::Symbol, temperature::K, pressure::K=Pₐ; s...) where {K<:Float64}
 
-    readmechanism(mech)
-    gasexpr = :(gas = Gas{$K}(:H2, mechanism))
+    mechanism = readmechanism(mech)
+    gasexpr = :(gas = Gas{$K}(:H2, $mechanism))
     eval(gasexpr)
 
     species = String.(first.(collect(s)))
