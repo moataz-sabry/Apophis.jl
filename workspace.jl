@@ -46,3 +46,5 @@ open("./jac/GRI3.jl", "a") do io
    println(io, A_expr)
    #replace(io, "(ˍ₋out, ˍ₋arg1, T, ˍ₋arg3, T₀, P₀)" => "jac(ˍ₋out, ˍ₋arg1, T, ˍ₋arg3, T₀, P₀)")
 end
+
+#mohamed osman 
