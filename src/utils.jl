@@ -122,7 +122,7 @@ function indexreaction(auxillaryindex, reactionsblock, assignreactions) ## assig
 
     prevreaction = extractequation(prevreactionline)
     assignindex = findindex(prevreaction, assignreactions)
-    return assignindex
+    return prevreaction, assignindex
 end
 
 function extractauxillary(keyword, reactionsblock, assignreactions) ## fills a matrix with auxillary parameters
@@ -135,7 +135,12 @@ function extractauxillary(keyword, reactionsblock, assignreactions) ## fills a m
     auxmatrix = zeros(Float64, totalreactions, totalparameters)
 
     for i in eachindex(auxindicies)
-        assignindex = indexreaction(auxindicies[i], reactionsblock, assignreactions)
+        prevreaction, assignindex = indexreaction(auxindicies[i], reactionsblock, assignreactions)
+        if auxmatrix[assignindex, 1] != 0.0
+            assignindex = findnext(assignreactions, assignindex + 1) do x ## united against duplicates
+                occursin(prevreaction, x)
+            end
+        end
         auxparameters =
             split(auxlines[i], r"^.*?(?=[\s+-\/]\d(?:\.|\d|\s))|[\s\/]"i, keepempty=false) #r"[ /]|(?i)troe(?-i)"   \s+|[a-df-z\/]|(?<!\d)e
 
@@ -155,7 +160,7 @@ function extractalpha(specieslist, reactionsblock, assignreactions) ## fills a m
     alphamatrix = ones(Float64, totalreactions, totalspecies)
 
     for l in eachindex(alphalines)
-        reactionindex = indexreaction(alphaindices[l], reactionsblock, assignreactions)
+        _, reactionindex = indexreaction(alphaindices[l], reactionsblock, assignreactions)
         speciesfactors = split(alphalines[l], r"[\s/]", keepempty=false)
         totalfactors = length(speciesfactors)
 
@@ -210,7 +215,7 @@ function stoichiometric_indices(stoichiosmatrix) ## could be integrated in previ
     for i in axes(A, 2), k in axes(A, 1)
         iszero(A[k, i]) || push!(indicies[k], i)
     end
-    return indicies
+    return Tuple.(indicies)
 end
 
 function extractweight(speciesline) ## computes the molecular weight from the given species line
@@ -282,7 +287,7 @@ function reversibility(keyword, reactionsblock, assignreactions)
     totalreactions = zero(auxindicies)
 
     for i in eachindex(auxindicies)
-        assignindex = indexreaction(auxindicies[i], reactionsblock, assignreactions)
+        _, assignindex = indexreaction(auxindicies[i], reactionsblock, assignreactions)
         totalreactions[i] = assignindex
     end
     return totalreactions
@@ -354,8 +359,8 @@ function readmechanism(title) ## main function, calls previous functions in orde
     reactants_indices = findall(x -> !iszero(x), stoichiometric_reactants) ##matrix as sparse? or vector
     products_indices = findall(x -> !iszero(x), stoichiometric_products)
 
-    #reactants_indices = stoichiometric_indices(stoichiometric_reactants)
-    #products_indices = stoichiometric_indices(stoichiometric_products)
+    reactants_indicess = stoichiometric_indices(stoichiometric_reactants)
+    products_indicess = stoichiometric_indices(stoichiometric_products)
 
     high_pressure_parameters = extractauxillary(:high, reactionsblock, reactions)
     reverse_reaction_parameters = extractauxillary(:rev, reactionsblock, reactions)
@@ -390,6 +395,51 @@ function readmechanism(title) ## main function, calls previous functions in orde
         stoichiometric_reactants,
         stoichiometric_reactions,
         stoichiometric_transpose,
-        stoichiometric_sum
+        stoichiometric_sum,
+        reactants_indicess,
+        products_indicess
     )
+end
+
+function init(mech::Symbol, temperature::K, pressure::K=Pₐ; s...) where {K<:Float64}
+
+    strng = string(mech)
+    expr = :(mechanism = readmechanism($strng))
+    eval(expr)
+    gasexpr = :(gas = Gas{$K}(:H2, mechanism))
+    eval(gasexpr)
+
+    species = String.(first.(collect(s)))
+    fractions = last.(collect(s))
+    ∑fractions = sum(fractions)
+
+    indicies = indexin(species, mechanism.species)
+    in(nothing, indicies) && error("one or more of species are not part of $(mech) mechanism")
+    ∑fractions == one(K) || @warn "∑Y = $(∑fractions) ≠ 1!"
+
+    W⁻¹ = mechanism.inverse_molecular_weight
+
+    ## integrate with concentrations? ##
+    T = gas.initial.temperature = temperature
+    P = gas.initial.pressure = pressure
+
+    Y = gas.initial.mass_fractions
+    X = gas.initial.molar_fractions
+    C = gas.initial.molar_concentration
+
+    for i in eachindex(indicies)
+        j = indicies[i]
+        Y[j] = fractions[i]
+    end
+
+    W̅ = inv(Y ⋅ W⁻¹)
+    ρ = gas.initial.density = P * W̅ / (R * T)
+
+    for i in eachindex(mechanism.species)
+        YW⁻¹ = Y[i] * W⁻¹[i]
+        C[i] = YW⁻¹ * ρ
+        X[i] = YW⁻¹ * W̅
+    end
+
+    return nothing
 end

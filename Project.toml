@@ -1,7 +1,7 @@
 name = "Apophis"
 uuid = "cf72b054-1e85-4718-a3f4-02cfdc10a054"
 authors = ["moataz-sabry <moataz.sabry@outlook.de>"]
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"

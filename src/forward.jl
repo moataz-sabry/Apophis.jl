@@ -1,46 +1,3 @@
-function init(mech::Symbol, temperature::K, pressure::K=Pₐ; s...) where {K<:Float64}
-
-    strng = string(mech)
-    expr = :(mechanism = readmechanism($strng))
-    eval(expr)
-    gasexpr = :(gas = Gas{$K}(:H2, mechanism))
-    eval(gasexpr)
-
-    species = String.(first.(collect(s)))
-    fractions = last.(collect(s))
-    ∑fractions = sum(fractions)
-
-    indicies = indexin(species, mechanism.species)
-    in(nothing, indicies) && error("one or more of species are not part of $(mech) mechanism")
-    ∑fractions == one(K) || @warn "∑Y = $(∑fractions) ≠ 1!"
-
-    W⁻¹ = mechanism.inverse_molecular_weight
-
-    ## integrate with concentrations? ##
-    T = gas.initial.temperature = temperature
-    P = gas.initial.pressure = pressure
-
-    Y = gas.initial.mass_fractions
-    X = gas.initial.molar_fractions
-    C = gas.initial.molar_concentration
-
-    for i in eachindex(indicies)
-        j = indicies[i]
-        Y[j] = fractions[i]
-    end
-
-    W̅ = inv(Y ⋅ W⁻¹)
-    ρ = gas.initial.density = P * W̅ / (R * T)
-
-    for i in eachindex(mechanism.species)
-        YW⁻¹ = Y[i] * W⁻¹[i]
-        C[i] = YW⁻¹ * ρ
-        X[i] = YW⁻¹ * W̅
-    end
-
-    return nothing
-end
-
 function init(mech::Symbol, temperature::K, pressure::K, mass_fractions) where {K<:Num}
 
     strng = string(mech)
@@ -71,11 +28,27 @@ function init(mech::Symbol, temperature::K, pressure::K, mass_fractions) where {
     return nothing
 end
 
-function polynomials((; current, intermediate, mechanism)::Gas) ## computes nasa polynomials for species entropy, entahlpy, ...
+function interval((; current, intermediate, mechanism)::Gas)
 
     Tₖ = mechanism.common_temperature
     A = mechanism.upper_temperature_coefficients
     a = mechanism.lower_temperature_coefficients
+
+    coeffs = intermediate.polynomial_coefficients
+    T = current.temperature
+
+    for i in eachindex(mechanism.species) ## 500 ns; faster than coeffs[:, i] .= view(A, :, i); 690 ns for GRI3; eachcol?
+        offset = 7i - 6  ## 7(i - 1) + 1
+        if T ≥ Tₖ[i]
+            copyto!(coeffs, offset, A, offset, 7)
+        else
+            copyto!(coeffs, offset, a, offset, 7)
+        end
+    end
+    return nothing
+end
+
+function polynomials((; current, intermediate, mechanism)::Gas) ## computes nasa polynomials for species entropy, entahlpy, ...
 
     coeffs = intermediate.polynomial_coefficients
     a₁, a₂, a₃, a₄, a₅, a₆, a₇ = (view(coeffs, a, :) for a in 1:7) ## multiple assign?
@@ -88,23 +61,14 @@ function polynomials((; current, intermediate, mechanism)::Gas) ## computes nasa
 
     T = current.temperature
 
-    for i in eachindex(mechanism.species) ## 500 ns; faster than coeffs[:, i] .= view(A, :, i); 690 ns for GRI3; eachcol?
-        offset = 7i - 6  ## 7(i - 1) + 1
-        #if T ≥ Tₖ[i]
-        copyto!(coeffs, offset, A, offset, 7)
-        #else
-        #    copyto!(coeffs, offset, a, offset, 7)
-        #end
-    end
-
     for i in eachindex(mechanism.species) ## save repeated operations
-        cₚ[i] = (a₁[i] + a₂[i] * T + a₃[i] * T^2 + a₄[i] * T^3 + a₅[i] * T^4)R
+        cₚ[i] = (a₁[i] + a₂[i]T + a₃[i]T^2 + a₄[i]T^3 + a₅[i]T^4)R
         cᵥ[i] = cₚ[i] - R
 
-        h[i] = (a₁[i] * T + a₂[i] / 2 * T^2 + a₃[i] / 3 * T^3 + a₄[i] / 4 * T^4 + a₅[i] / 5 * T^5 + a₆[i])R
+        h[i] = (a₁[i]T + a₂[i]T^2 / 2 + a₃[i]T^3 / 3 + a₄[i]T^4 / 4 + a₅[i]T^5 / 5 + a₆[i])R
         u[i] = h[i] - (R * T)
 
-        s[i] = (a₁[i] * log(T) + a₂[i] * T + a₃[i] / 2 * T^2 + a₄[i] / 3 * T^3 + a₅[i] / 4 * T^4 + a₇[i])R
+        s[i] = (a₁[i] * log(T) + a₂[i]T + a₃[i]T^2 / 2 + a₄[i]T^3 / 3 + a₅[i]T^4 / 4 + a₇[i])R
     end
 
     return nothing
@@ -264,6 +228,7 @@ function step!(gas::Gas{K}, Y::AbstractVector{K}, T::K) where {K<:Real} ### Abst
     gas.current.temperature = T
     gas.current.density = gas.initial.density ## in init?
 
+    interval(gas)
     polynomials(gas)
     concentrations(gas)
     reactionconstants(gas)
