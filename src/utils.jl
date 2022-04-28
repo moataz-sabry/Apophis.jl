@@ -4,9 +4,10 @@
 3. cut down operations for upcoming calculations, ex. W⁻¹
 4. offset arrays
 5. indexin function?
+6. duplicate reactions causes error
 =#
 
-searchdir(path, key) = filter(x -> contains(x, key), readdir(path)) ### for easily find data files
+searchdir(path, key) = filter(x -> contains(x, key), readdir(path)) ### to easily find data files
 
 function isreaction(line) ## checks if the line contains a reaction, used later to assign auxillary parameters to the corresponding reactions
     occursin(r"<?=>?", line)
@@ -215,12 +216,12 @@ end
 function extractweight(speciesline) ## computes the molecular weight from the given species line
 
     moleweight = 0.0
-    regex = r"(?:H|O|N|C|AR|HE)\s+\d(?=H|O|N|C|AR|HE|\h)"i ## bad?
+    regex = r"(?:H|O|N|C|AR|HE)\s+\d(?=H|O|N|C|AR|HE|(?=\s*(?:G|L|S)))"i ## bad?
     matchpairs = eachmatch(regex, speciesline)
 
     for pair in matchpairs
         el, moles = split(pair.match)
-        elweight = get(elementsweight, uppercase(el), nothing) ## uppercase to avoind Ar not being found
+        elweight = get(elementsweight, uppercase(el), nothing) ## uppercase to avoid Ar not being found
         elmoles = parse(Float64, moles)
         moleweight += elweight * elmoles
     end
@@ -272,6 +273,19 @@ function extractthermo(specieslist, thermoblock) ## extracts the thermodynamic c
         end
     end
     return moleweight, midtemperatures, highcoeffmatrix, lowcoeffmatrix
+end
+
+function reversibility(keyword, reactionsblock, assignreactions)
+
+    _, auxindicies = findlines(keyword, reactionsblock)
+
+    totalreactions = zero(auxindicies)
+
+    for i in eachindex(auxindicies)
+        assignindex = indexreaction(auxindicies[i], reactionsblock, assignreactions)
+        totalreactions[i] = assignindex
+    end
+    return totalreactions
 end
 
 # function readmec(title; print=false)
@@ -330,12 +344,11 @@ function readmechanism(title) ## main function, calls previous functions in orde
 
     reactions = vcat(elementary_reactions, threebody_reactions, falloff_reactions)
     isreversible = findall(x -> occursin(r"<=>|(?<!<)=(?!>)", x), reactions)
-    reversible_parameters = findall(x -> occursin(r"rev"i, x), reactions) ###optimizable
+    reversible_parameters = reversibility(:rev, reactionsblock, reactions)
     reversible_equilibrium = setdiff(isreversible, reversible_parameters)
 
     stoichiometric_reactions, stoichiometric_reactants, stoichiometric_products, stoichiometric_sum =
         extractstoichiometry(reactions, species)
-
 
     stoichiometric_transpose = sparse(stoichiometric_reactions') ## fix
     reactants_indices = findall(x -> !iszero(x), stoichiometric_reactants) ##matrix as sparse? or vector
