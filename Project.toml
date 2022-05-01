@@ -1,13 +1,10 @@
 name = "Apophis"
 uuid = "cf72b054-1e85-4718-a3f4-02cfdc10a054"
 authors = ["moataz-sabry <moataz.sabry@outlook.de>"]
-version = "0.1.1"
+version = "0.2.0"
 
 [deps]
-BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
-PackageCompiler = "9b87118b-4619-50d2-8e1e-99f35a4d4d9d"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 Sundials = "c3572dad-4567-51f8-b174-8c6c989267f4"
-Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"

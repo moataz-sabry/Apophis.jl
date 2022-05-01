@@ -13,6 +13,10 @@ function isreaction(line) ## checks if the line contains a reaction, used later 
     occursin(r"<?=>?", line)
 end
 
+# :elementary => r"(?!.*\+m)(?=.*<?=>?)"i,
+# :threebody => r"(?<!\()\+m(?!\))"i,
+# :falloff => r"\(\+m\)"i,
+
 function readfile(file_path) ## filters the data file from comment lines
 
     file_data = String[]
@@ -133,7 +137,7 @@ function extractauxillary(keyword, reactionsblock, assignreactions) ## fills a m
 
     totalreactions = length(assignreactions)
     auxmatrix = zeros(Float64, totalreactions, totalparameters)
-
+    isaux = Int64[]
     for i in eachindex(auxindicies)
         prevreaction, assignindex = indexreaction(auxindicies[i], reactionsblock, assignreactions)
         if auxmatrix[assignindex, 1] != 0.0
@@ -147,8 +151,9 @@ function extractauxillary(keyword, reactionsblock, assignreactions) ## fills a m
         for parameter in eachindex(auxparameters)
             auxmatrix[assignindex, parameter] = parse(Float64, auxparameters[parameter])
         end
+        push!(isaux, assignindex)
     end
-    return auxmatrix
+    return isaux, auxmatrix
 end
 
 function extractalpha(specieslist, reactionsblock, assignreactions) ## fills a matrix with limiting factors
@@ -203,7 +208,7 @@ function extractstoichiometry(reactionlist, specieslist) ## fills matrices with 
     end
 
     stoichiosmatrix = stoichioproducts - stoichioreactants
-    stoichiosum = sum(stoichiosmatrix, dims=2)
+    stoichiosum = dropdims(sum(stoichiosmatrix, dims=2), dims=2)
 
     return sparse(stoichiosmatrix), stoichioreactants, stoichioproducts, stoichiosum
 end
@@ -215,17 +220,18 @@ function stoichiometric_indices(stoichiosmatrix) ## could be integrated in previ
     for i in axes(A, 2), k in axes(A, 1)
         iszero(A[k, i]) || push!(indicies[k], i)
     end
-    return Tuple.(indicies)
+    return indicies
 end
 
 function extractweight(speciesline) ## computes the molecular weight from the given species line
 
     moleweight = 0.0
-    regex = r"(?:H|O|N|C|AR|HE)\s+\d(?=H|O|N|C|AR|HE|(?=\s*(?:G|L|S)))"i ## bad?
+    regex = r"(?:H|O|N|C|AR|HE)\s+\d(?=H|O|N|C|AR|HE|(?=\s*(?:G|L|S|0)))"i ## bad?
     matchpairs = eachmatch(regex, speciesline)
 
     for pair in matchpairs
         el, moles = split(pair.match)
+
         elweight = get(elementsweight, uppercase(el), nothing) ## uppercase to avoid Ar not being found
         elmoles = parse(Float64, moles)
         moleweight += elweight * elmoles
@@ -319,7 +325,7 @@ end
 #     return nothing
 # end
 
-function readmechanism(title) ## main function, calls previous functions in order
+function readmechanism(title, T) ## main function, calls previous functions in order
 
     mechanism_path = pkgdir(Apophis, "mechanisms")
     mech_file_path = mechanism_path * "/$(title)_mech.dat"
@@ -349,28 +355,28 @@ function readmechanism(title) ## main function, calls previous functions in orde
 
     reactions = vcat(elementary_reactions, threebody_reactions, falloff_reactions)
     isreversible = findall(x -> occursin(r"<=>|(?<!<)=(?!>)", x), reactions)
-    reversible_parameters = reversibility(:rev, reactionsblock, reactions)
-    reversible_equilibrium = setdiff(isreversible, reversible_parameters)
 
     stoichiometric_reactions, stoichiometric_reactants, stoichiometric_products, stoichiometric_sum =
         extractstoichiometry(reactions, species)
 
-    stoichiometric_transpose = sparse(stoichiometric_reactions') ## fix
-    reactants_indices = findall(x -> !iszero(x), stoichiometric_reactants) ##matrix as sparse? or vector
-    products_indices = findall(x -> !iszero(x), stoichiometric_products)
+    stoichiometric_transpose = sparse(stoichiometric_reactions')
 
-    reactants_indicess = stoichiometric_indices(stoichiometric_reactants)
-    products_indicess = stoichiometric_indices(stoichiometric_products)
+    reactants_indices = stoichiometric_indices(stoichiometric_reactants)
+    products_indices = stoichiometric_indices(stoichiometric_products)
 
-    high_pressure_parameters = extractauxillary(:high, reactionsblock, reactions)
-    reverse_reaction_parameters = extractauxillary(:rev, reactionsblock, reactions)
-    low_pressure_parameters = extractauxillary(:low, reactionsblock, falloff_reactions)
-    troe_parameters = extractauxillary(:troe, reactionsblock, falloff_reactions)
+    _, forward_reaction_parameters = extractauxillary(:high, reactionsblock, reactions)
+    pressure_independant_parameters = forward_reaction_parameters[1:(length(reactions)-length(falloff_reactions)), :] ## optimize
+    high_pressure_parameters = forward_reaction_parameters[length(reactions)-length(falloff_reactions)+1:length(reactions), :] ## optimize
+    is_reverse_parameters, reverse_reaction_parameters = extractauxillary(:rev, reactionsblock, reactions)
+    _, low_pressure_parameters = extractauxillary(:low, reactionsblock, falloff_reactions)
+    is_troe_parameters, troe_parameters = extractauxillary(:troe, reactionsblock, falloff_reactions)
+
+    is_reversible_equilibrium = setdiff(isreversible, is_reverse_parameters)
 
     alphareactions = vcat(threebody_reactions, falloff_reactions) ## potential reactions with enhancement factors
     enhancement_factors = extractalpha(species, reactionsblock, alphareactions)
 
-    return Mechanism(
+    return Mechanism{T}(
         elements,
         species,
         reactions,
@@ -380,12 +386,12 @@ function readmechanism(title) ## main function, calls previous functions in orde
         common_temperature,
         molecular_weight,
         inverse_molecular_weight,
-        reversible_parameters,
-        reversible_equilibrium,
-        reactants_indices,
-        products_indices,
+        is_reverse_parameters,
+        is_reversible_equilibrium,
+        is_troe_parameters,
         lower_temperature_coefficients,
         upper_temperature_coefficients,
+        pressure_independant_parameters,
         high_pressure_parameters,
         low_pressure_parameters,
         troe_parameters,
@@ -396,36 +402,34 @@ function readmechanism(title) ## main function, calls previous functions in orde
         stoichiometric_reactions,
         stoichiometric_transpose,
         stoichiometric_sum,
-        reactants_indicess,
-        products_indicess
+        reactants_indices,
+        products_indices
     )
 end
 
-function init(mech::Symbol, temperature::K, pressure::K=Pₐ; s...) where {K<:Float64}
+function init(mech::Symbol, temperature::K, pressure::K=Pₐ; s...) where {K<:Number}
 
     strng = string(mech)
-    expr = :(mechanism = readmechanism($strng))
-    eval(expr)
-    gasexpr = :(gas = Gas{$K}(:H2, mechanism))
+    gasexpr = :(gas = Gas{$K}(readmechanism($strng, $K)))
     eval(gasexpr)
 
     species = String.(first.(collect(s)))
     fractions = last.(collect(s))
     ∑fractions = sum(fractions)
 
-    indicies = indexin(species, mechanism.species)
+    indicies = indexin(species, gas.mechanism.species)
     in(nothing, indicies) && error("one or more of species are not part of $(mech) mechanism")
-    ∑fractions == one(K) || @warn "∑Y = $(∑fractions) ≠ 1!"
+    ∑fractions ≈ one(K) || @warn "∑Y = $(∑fractions) ≠ 1!"
 
-    W⁻¹ = mechanism.inverse_molecular_weight
+    W⁻¹ = gas.mechanism.inverse_molecular_weight
 
     ## integrate with concentrations? ##
-    T = gas.initial.temperature = temperature
+    T = gas.initial.temperature[1] = temperature
     P = gas.initial.pressure = pressure
 
     Y = gas.initial.mass_fractions
     X = gas.initial.molar_fractions
-    C = gas.initial.molar_concentration
+    C = gas.initial.molar_concentrations
 
     for i in eachindex(indicies)
         j = indicies[i]
@@ -433,13 +437,15 @@ function init(mech::Symbol, temperature::K, pressure::K=Pₐ; s...) where {K<:Fl
     end
 
     W̅ = inv(Y ⋅ W⁻¹)
-    ρ = gas.initial.density = P * W̅ / (R * T)
+    ρ = gas.current.density = gas.initial.density = P * W̅ / (R * T)
 
-    for i in eachindex(mechanism.species)
+    for i in eachindex(gas.mechanism.species)
         YW⁻¹ = Y[i] * W⁻¹[i]
         C[i] = YW⁻¹ * ρ
         X[i] = YW⁻¹ * W̅
     end
+
+    #gas.current = gas.initial
 
     return nothing
 end
