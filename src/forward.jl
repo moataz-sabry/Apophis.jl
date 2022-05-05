@@ -1,8 +1,9 @@
 function arrhenius(A::K, b::K, E::K, T::K) where {K<:Float64}
     RcT⁻¹ = inv(Rc * T)
     k = A * T^b * exp(-E * RcT⁻¹)
+    dkdA = T^b * exp(-E * RcT⁻¹)
     dkdT = (b + E * RcT⁻¹) * k / T
-    return k, dkdT
+    return k, dkdT, dkdA
 end
 
 function reducedpressure(kₒ::K, M::K, k∞::K) where {K<:Float64}
@@ -58,31 +59,26 @@ function interval((; current, intermediate, mechanism)::Gas{K}) where {K<:Float6
     return nothing
 end
 
-function polynomials((; current, jacobian, intermediate, mechanism)::Gas{K}) where {K<:Float64} # computes nasa polynomials for species entropy, entahlpy, ...
+function polynomials((; current, intermediate, mechanism)::Gas{K}) where {K<:Float64} # computes nasa polynomials for species entropy, entahlpy, ...
 
     coeffs = intermediate.polynomial_coefficients
     a₁, a₂, a₃, a₄, a₅, a₆, a₇ = (view(coeffs, a, :) for a in 1:7) # multiple assign?
 
-    cₚ = intermediate.heat_capacity_pressure
-    cᵥ = intermediate.heat_capacity_volume
-    h = intermediate.enthalpy_species
-    u = intermediate.internal_energy
-    s = intermediate.entropy_species
+    cₚ, dcₚdT, _ = intermediate.heat_capacity_pressure
+    cᵥ, dcᵥdT, _ = intermediate.heat_capacity_volume
+    h, dhdT, _ = intermediate.enthalpy_species
+    u, dudT, _ = intermediate.internal_energy
+    s, dsdT, _ = intermediate.entropy_species
 
     T = only(current.temperature)
     T², T³, T⁴, T⁵ = T^2, T^3, T^4, T^5 ## necessary?
-
-    dcₚdT = jacobian.heat_capacity_pressure_temperature
-    dhdT = jacobian.enthalpy_species_temperature
-    dudT = jacobian.internal_energy_temperature
-    dsdT = jacobian.entropy_species_temperature
 
     for i in eachindex(mechanism.species) # save repeated operations
         cₚ[i] = (a₁[i] + a₂[i]T + a₃[i]T² + a₄[i]T³ + a₅[i]T⁴)R
         dcₚdT[i] = (a₂[i] + 2a₃[i]T + 3a₄[i]T² + 4a₅[i]T³)R
 
         cᵥ[i] = cₚ[i] - R
-        # dcᵥdT = dcₚdT
+        dcᵥdT[i] = dcₚdT[i]
 
         h[i] = (a₁[i]T + a₂[i]T² / 2 + a₃[i]T³ / 3 + a₄[i]T⁴ / 4 + a₅[i]T⁵ / 5 + a₆[i])R
         dhdT[i] = (a₁[i] + a₂[i]T + a₃[i]T² + a₄[i]T³ + a₅[i]T⁴)R
@@ -97,17 +93,15 @@ function polynomials((; current, jacobian, intermediate, mechanism)::Gas{K}) whe
     return nothing
 end
 
-function concentrations((; current, jacobian, intermediate, mechanism)::Gas{K}) where {K<:Float64} # computes species properties
+function concentrations((; current, intermediate, mechanism)::Gas{K}) where {K<:Float64} # computes species properties
 
     W⁻¹ = mechanism.inverse_molecular_weight
     α = mechanism.enhancement_factors
-    M = intermediate.total_molar_concentrations
+    M, _, _ = intermediate.total_molar_concentrations
 
     Y = current.mass_fractions
-    C = current.molar_concentrations
+    C, _, dCdY = current.molar_concentrations
     ρ = current.density
-
-    dCdY = jacobian.molar_concentrations_mass_fractions
 
     for i in eachindex(mechanism.species)
         C[i] = Y[i] * W⁻¹[i] * ρ
@@ -119,7 +113,7 @@ function concentrations((; current, jacobian, intermediate, mechanism)::Gas{K}) 
     return nothing
 end
 
-function forwardrates((; current, jacobian, intermediate, mechanism)::Gas{K}) where {K<:Float64}
+function forwardrates((; current, intermediate, mechanism)::Gas{K}) where {K<:Float64}
     # optimizable
 
     T = only(current.temperature)
@@ -135,20 +129,17 @@ function forwardrates((; current, jacobian, intermediate, mechanism)::Gas{K}) wh
     Aₒ, bₒ, Eₒ = (view(mechanism.low_pressure_parameters, :, p) for p in 1:3)
     A, b, E = (view(mechanism.pressure_independant_parameters, :, p) for p in 1:3)
 
-    M = intermediate.total_molar_concentrations
-    kf = intermediate.forward_rate_constant
-
-    dCdY = jacobian.molar_concentrations_mass_fractions
-    dkfdT = jacobian.forward_rate_constant_temperature
-    dkfdY = jacobian.forward_rate_constant_mass_fractions
+    M, _, _ = intermediate.total_molar_concentrations
+    kf, dkfdT, dkfdY, dkfdA = intermediate.forward_rate_constant
+    _, _, dCdY = current.molar_concentrations
 
     for k in axes(mechanism.pressure_independant_parameters, 1)
-        kf[k], dkfdT[k] = arrhenius(A[k], b[k], E[k], T)
+        kf[k], dkfdT[k], dkfdA[k, k] = arrhenius(A[k], b[k], E[k], T)
     end
 
     for f in istroe
-        kₒ, dkₒdT = arrhenius(Aₒ[f], bₒ[f], Eₒ[f], T)
-        k∞, dk∞dT = arrhenius(A∞[f], b∞[f], E∞[f], T)
+        kₒ, dkₒdT, dkₒdAₒ = arrhenius(Aₒ[f], bₒ[f], Eₒ[f], T)
+        k∞, dk∞dT, dk∞dA∞ = arrhenius(A∞[f], b∞[f], E∞[f], T)
 
         Pᵣ, dPᵣdM, dPᵣdkₒ, dPᵣdk∞ = reducedpressure(kₒ, M[nt+f], k∞)
 
@@ -186,10 +177,12 @@ function forwardrates((; current, jacobian, intermediate, mechanism)::Gas{K}) wh
         dFdn = v₇ / v₉
         ##check
         dFdT = (dFdFc + dFdc * dcdFc + dFdn * dndFc) * dFcdT + dFdPᵣ * (dPᵣdk∞ * dk∞dT + dPᵣdkₒ * dkₒdT)
+        dFdA = dFdPᵣ * (dPᵣdk∞ * dk∞dA∞)# + dPᵣdkₒ * dkₒdAₒ)
 
         kf[offset+f], dkfdF, dkfdk∞, dkfdPᵣ = troerate(k∞, Pᵣ, F)
 
         dkfdT[offset+f] = dkfdF * dFdT + dkfdk∞ * dk∞dT + dkfdPᵣ * (dPᵣdk∞ * dk∞dT + dPᵣdkₒ * dkₒdT)
+        dkfdA[offset+f, offset+f] = dkfdF * dFdA + dkfdk∞ * dk∞dA∞ + dkfdPᵣ * dPᵣdk∞ * dk∞dA∞# + dPᵣdkₒ * dkₒdAₒ)
 
         for i in eachindex(mechanism.species)
             dkfdY[offset+f, i] = (dkfdF * dFdPᵣ + dkfdPᵣ) * dPᵣdM * α[nt+f, i] * dCdY[i, i]
@@ -197,13 +190,14 @@ function forwardrates((; current, jacobian, intermediate, mechanism)::Gas{K}) wh
     end
 
     for f in filter(∉(istroe), eachindex(mechanism.falloff_reactions))
-        kₒ, dkₒdT = arrhenius(Aₒ[f], bₒ[f], Eₒ[f], T)
-        k∞, dk∞dT = arrhenius(A∞[f], b∞[f], E∞[f], T)
+        kₒ, dkₒdT, dkₒdAₒ = arrhenius(Aₒ[f], bₒ[f], Eₒ[f], T)
+        k∞, dk∞dT, dk∞dA∞ = arrhenius(A∞[f], b∞[f], E∞[f], T)
 
         Pᵣ, dPᵣdM, dPᵣdkₒ, dPᵣdk∞ = reducedpressure(kₒ, M[nt+f], k∞)
         kf[offset+f], dkfdk∞, dkfdPᵣ = lindemannrate(k∞, Pᵣ)
 
         dkfdT[offset+f] = dkfdk∞ * dk∞dT + dkfdPᵣ * (dPᵣdk∞ * dk∞dT + dPᵣdkₒ * dkₒdT)
+        dkfdA[offset+f, offset+f] = dkfdk∞ * dk∞dA∞ + dkfdPᵣ * dPᵣdk∞ * dk∞dA∞# + dPᵣdkₒ * dkₒdAₒ)
 
         for i in eachindex(mechanism.species)
             dkfdY[offset+f, i] = dkfdPᵣ * dPᵣdM * α[nt+f, i] * dCdY[i, i]
@@ -214,7 +208,7 @@ function forwardrates((; current, jacobian, intermediate, mechanism)::Gas{K}) wh
 
 end
 
-function reverserates((; current, jacobian, intermediate, mechanism)::Gas{K}) where {K<:Float64}
+function reverserates((; current, intermediate, mechanism)::Gas{K}) where {K<:Float64}
     # optimizable
 
     T = only(current.temperature)
@@ -227,21 +221,12 @@ function reverserates((; current, jacobian, intermediate, mechanism)::Gas{K}) wh
 
     Aᵣ, bᵣ, Eᵣ = (view(mechanism.reverse_reaction_parameters, :, p) for p in 1:3)
 
-    h = intermediate.enthalpy_species
-    s = intermediate.entropy_species
-    H = intermediate.enthalpy_reactions
-    S = intermediate.entropy_reactions
-    kf = intermediate.forward_rate_constant
-    kr = intermediate.reverse_rate_constant
-
-    dhdT = jacobian.enthalpy_species_temperature
-    dsdT = jacobian.entropy_species_temperature
-    dHdT = jacobian.enthalpy_reactions_temperature
-    dSdT = jacobian.entropy_reactions_temperature
-    dkfdT = jacobian.forward_rate_constant_temperature
-    dkrdT = jacobian.reverse_rate_constant_temperature
-    dkfdY = jacobian.forward_rate_constant_mass_fractions
-    dkrdY = jacobian.reverse_rate_constant_mass_fractions
+    h, dhdT, _ = intermediate.enthalpy_species
+    s, dsdT, _ = intermediate.entropy_species
+    H, dHdT, _ = intermediate.enthalpy_reactions
+    S, dSdT, _ = intermediate.entropy_reactions
+    kf, dkfdT, dkfdY, dkfdA = intermediate.forward_rate_constant
+    kr, dkrdT, dkrdY, dkrdA = intermediate.reverse_rate_constant
 
     mul!(H, ν, h)
     mul!(S, ν, s)
@@ -266,6 +251,7 @@ function reverserates((; current, jacobian, intermediate, mechanism)::Gas{K}) wh
         dkrdKc = -kf[k] * inv(Kc)^2
 
         dkrdT[k] = dkrdkf * dkfdT[k] + dkrdKc * (dKcdT + dKcdKp * (dKpdT + dKpdH * dHdT[k] + dKpdS * dSdT[k]))
+        dkrdA[k, k] = dkrdkf * dkfdA[k, k]
         for i in eachindex(mechanism.species) ## only falloff 
             dkrdY[k, i] = dkrdkf * dkfdY[k, i]
         end
@@ -278,7 +264,7 @@ function reverserates((; current, jacobian, intermediate, mechanism)::Gas{K}) wh
     return nothing
 end
 
-function productionrates((; current, jacobian, intermediate, mechanism)::Gas{K}) where {K<:Float64}
+function productionrates((; current, intermediate, mechanism)::Gas{K}) where {K<:Float64}
 
     nt = length(mechanism.threebody_reactions)
     ne = length(mechanism.elementary_reactions)
@@ -291,21 +277,15 @@ function productionrates((; current, jacobian, intermediate, mechanism)::Gas{K})
     reactants_indicies = mechanism.reactants_indicies
     products_indicies = mechanism.products_indicies
 
-    kf = intermediate.forward_rate_constant
-    kr = intermediate.reverse_rate_constant
-    M = view(intermediate.total_molar_concentrations, 1:nt)
-    q = intermediate.rate_of_progress
-    ω̇ = intermediate.production_rate
+    kf, dkfdT, dkfdY, dkfdA = intermediate.forward_rate_constant
+    kr, dkrdT, dkrdY, dkrdA = intermediate.reverse_rate_constant
+    M, _, _ = intermediate.total_molar_concentrations
+    MT = view(M, 1:nt)
+    q, dqdT, dqdY, dqdA = intermediate.rate_of_progress
+    ω̇, _, _ = intermediate.production_rate
 
-    C = current.molar_concentrations
+    C, _, dCdY = current.molar_concentrations
 
-    dCdY = jacobian.molar_concentrations_mass_fractions
-    dkfdT = jacobian.forward_rate_constant_temperature
-    dkrdT = jacobian.reverse_rate_constant_temperature
-    dkfdY = jacobian.forward_rate_constant_mass_fractions
-    dkrdY = jacobian.reverse_rate_constant_mass_fractions
-    dqdT = jacobian.rate_of_progress_temperature
-    dqdY = jacobian.rate_of_progress_mass_fractions
 
     for i in eachindex(mechanism.reactions)
 
@@ -321,6 +301,7 @@ function productionrates((; current, jacobian, intermediate, mechanism)::Gas{K})
 
         q[i] = kf[i] * stepf - kr[i] * stepr
         dqdT[i] = dkfdT[i] * stepf - dkrdT[i] * stepr
+        dqdA[i, i] = dkfdA[i, i] * stepf - dkrdA[i, i] * stepr
 
         for j in eachindex(mechanism.species) ## only falloff
             dqdY[i, j] = stepf * dkfdY[i, j] - stepr * dkrdY[i, j]
@@ -345,58 +326,54 @@ function productionrates((; current, jacobian, intermediate, mechanism)::Gas{K})
 
     for i in filter(∈(threebody_range), eachindex(mechanism.reactions))
         for j in eachindex(mechanism.species)
-            dqdY[i, j] *= M[i-ne]
+            dqdY[i, j] *= MT[i-ne]
             dqdY[i, j] += q[i] * α[i-ne, j] * dCdY[j, j]
         end
-        q[i] *= M[i-ne]
-        dqdT[i] *= M[i-ne]
+        q[i] *= MT[i-ne]
+        dqdT[i] *= MT[i-ne]
+        dqdA[i, i] *= MT[i-ne]
     end
 
     mul!(ω̇, nut, q)
     return nothing
 end
 
-function rhs((; current, jacobian, intermediate, mechanism)::Gas{K}) where {K<:Float64}
+function rhs((; current, intermediate, mechanism)::Gas{K}) where {K<:Float64}
 
     W⁻¹ = mechanism.inverse_molecular_weight
-    Y = current.mass_fractions
-    X = current.molar_fractions
     W = mechanism.molecular_weight
-    cᵥ = intermediate.heat_capacity_volume
-    Ẏ = intermediate.mass_change_rate
-    Ṫ = intermediate.temperature_change_rate
-    ρ = current.density
-    ω̇ = intermediate.production_rate
-
-    u = intermediate.internal_energy
     nut = mechanism.stoichiometric_transpose
 
-    dcₚdT = jacobian.heat_capacity_pressure_temperature
-    dudT = jacobian.internal_energy_temperature
-    dω̇dT = jacobian.production_rate_temperature
-    dẎdT = jacobian.mass_change_rate_temperature
-    dṪdT = jacobian.temperature_change_rate_temperature
-    dṪdY = jacobian.temperature_change_rate_mass_fractions
-    dXdY = jacobian.molar_fractions_mass_fractions
-    dω̇dY = jacobian.production_rate_mass_fractions
-    dẎdY = jacobian.mass_change_rate_mass_fractions
-    dqdY = jacobian.rate_of_progress_mass_fractions
-    dqdT = jacobian.rate_of_progress_temperature
+    cᵥ, dcᵥdT, _ = intermediate.heat_capacity_volume
+    u, dudT, _ = intermediate.internal_energy
+    _, dqdT, dqdY, dqdA = intermediate.rate_of_progress
+    ω̇, dω̇dT, dω̇dY, dω̇dA = intermediate.production_rate
+    Ẏ, dẎdT, dẎdY, dẎdA = intermediate.mass_change_rate
+    Ṫ, dṪdT, dṪdY, dṪdA = intermediate.temperature_change_rate
+
+    ρ = current.density
+    Y = current.mass_fractions
+    X, _, dXdY = current.molar_fractions
 
     dω̇dq = nut
     mul!(dω̇dT, dω̇dq, dqdT)
     mul!(dω̇dY, dω̇dq, dqdY)
+    mul!(dω̇dA, dω̇dq, dqdA)
+    #show(stdout, "text/plain", dω̇dA)
 
     W̅ = inv(Y ⋅ W⁻¹)
     c̅ᵥ = 0.0
     dc̅ᵥdT = 0.0
     for i in eachindex(mechanism.species)
         c̅ᵥ += cᵥ[i] * W⁻¹[i] * Y[i]
-        dc̅ᵥdT += dcₚdT[i] * W⁻¹[i] * Y[i]
+        dc̅ᵥdT += dcᵥdT[i] * W⁻¹[i] * Y[i]
     end
 
     Ṫ[1] = -(ω̇ ⋅ u) / (ρ * c̅ᵥ) # worth it? #dTdt
     dṪdT[1] = -(Ṫ[1] * dc̅ᵥdT / c̅ᵥ) - (dω̇dT ⋅ u + ω̇ ⋅ dudT) / (ρ * c̅ᵥ)
+
+    mul!(dẎdA, Diagonal(W), dω̇dA, inv(ρ), 0.0) # checked √
+    mul!(dṪdA, u', dω̇dA, -inv((ρ * c̅ᵥ)), 0.0) # checked √
 
     for i in eachindex(mechanism.species)
 
@@ -404,6 +381,7 @@ function rhs((; current, jacobian, intermediate, mechanism)::Gas{K}) where {K<:F
         Ẏ[i] = ω̇[i] * W[i] / ρ #dYdt
         dẎdT[i] = dω̇dT[i] * W[i] / ρ #
         dṪdY[1, i] = -Ṫ[1] * cᵥ[i] * W⁻¹[i] / c̅ᵥ #
+
         for j in eachindex(mechanism.species)
             dXdY[i, j] = -Y[i] * W⁻¹[i] * W̅^2 * W⁻¹[j]
             dẎdY[i, j] = dω̇dY[i, j] * W[i] / ρ #
@@ -411,6 +389,8 @@ function rhs((; current, jacobian, intermediate, mechanism)::Gas{K}) where {K<:F
         end
         dXdY[i, i] += W̅ * W⁻¹[i]
     end
+    #show(stdout, "text/plain", dẎdA)
+    #show(stdout, "text/plain", dṪdA)
     return nothing
 end
 

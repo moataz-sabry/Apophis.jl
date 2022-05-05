@@ -5,6 +5,9 @@ export init
 export step!
 export equilibrate
 export readmechanism
+export subspaces
+export monte
+
 
 #import BenchmarkTools: @btime ## only for tests?
 using LinearAlgebra
@@ -12,7 +15,9 @@ using SparseArrays: sparse, SparseMatrixCSC
 using DifferentialEquations
 #using DiffEqCallbacks
 using Sundials
-using Interpolations
+using Distributions
+using Statistics
+using Polynomials: fit
 
 const Rc = 1.987261815324 #* u"cal * (K * mol)"
 const R = 8.31446261815324e7 # * u"erg / (K * mol)"
@@ -24,5 +29,6 @@ include("utils.jl")
 include("complex.jl")
 include("forward.jl")
 include("solvers.jl")
+include("subspaces.jl")
 
 end

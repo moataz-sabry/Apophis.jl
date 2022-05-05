@@ -1,5 +1,11 @@
 ## tuples?
 
+## H2
+const UF = Dict(
+    :H2 => [1.5, 1.3, 2.0, 1.5, 2.0, 3.0, 1.2, 3.0, 2.5, 1.4, 3.0, 2.0, 3.0, 2.0, 2.0, 2.0, 2.0, 3.0, 2.0, 1.2, 2.5], ## Refernce?
+    :GRI3 => rand(1.0:0.1:3.0, 325)
+)
+
 const regexdictionary = Dict(
     :commentout => r"^((?!\s*!))",
     :elementary => r"(?!.*\+m)(?=.*<?=>?)"i,
@@ -55,22 +61,21 @@ end
 
 struct Variables{T<:Number}
 
-    temperature_change_rate::Vector{T}
-    heat_capacity_pressure::Vector{T}
-    heat_capacity_volume::Vector{T}
-    entropy_species::Vector{T}
-    enthalpy_species::Vector{T}
-    internal_energy::Vector{T}
-    total_molar_concentrations::Vector{T}
-    production_rate::Vector{T}
-    mass_change_rate::Vector{T}
-    entropy_reactions::Vector{T}
-    enthalpy_reactions::Vector{T}
-    forward_rate_constant::Vector{T}
-    reverse_rate_constant::Vector{T}
-    rate_of_progress::Vector{T}
     polynomial_coefficients::Matrix{T}
-
+    temperature_change_rate::Tuple{Vector{T},Vector{T},Matrix{T},Matrix{T}}
+    heat_capacity_pressure::Tuple{Vector{T},Vector{T},Matrix{T}}
+    heat_capacity_volume::Tuple{Vector{T},Vector{T},Matrix{T}}
+    entropy_species::Tuple{Vector{T},Vector{T},Matrix{T}}
+    enthalpy_species::Tuple{Vector{T},Vector{T},Matrix{T}}
+    internal_energy::Tuple{Vector{T},Vector{T},Matrix{T}}
+    total_molar_concentrations::Tuple{Vector{T},Vector{T},Matrix{T}}
+    production_rate::Tuple{Vector{T},Vector{T},Matrix{T},Matrix{T}}
+    mass_change_rate::Tuple{Vector{T},Vector{T},Matrix{T},Matrix{T}}
+    entropy_reactions::Tuple{Vector{T},Vector{T},Matrix{T}}
+    enthalpy_reactions::Tuple{Vector{T},Vector{T},Matrix{T}}
+    forward_rate_constant::Tuple{Vector{T},Vector{T},Matrix{T},Matrix{T}}
+    reverse_rate_constant::Tuple{Vector{T},Vector{T},Matrix{T},Matrix{T}}
+    rate_of_progress::Tuple{Vector{T},Vector{T},Matrix{T},Matrix{T}}
 
     function Variables{T}(mechanism::Mechanism{T}) where {T<:Number}
         ns = length(mechanism.species)
@@ -78,72 +83,21 @@ struct Variables{T<:Number}
         nt = length(mechanism.threebody_reactions)
         nf = length(mechanism.falloff_reactions)
         return new(
-            zeros(T, 1),
-            zeros(T, ns),
-            zeros(T, ns),
-            zeros(T, ns),
-            zeros(T, ns),
-            zeros(T, ns),
-            zeros(T, nt + nf),
-            zeros(T, ns),
-            zeros(T, ns),
-            zeros(T, nr),
-            zeros(T, nr),
-            zeros(T, nr),
-            zeros(T, nr),
-            zeros(T, nr),
             zeros(T, 7, ns),
-        )
-    end
-end
-
-struct Derivatives{T<:Number}
-
-    temperature_change_rate_temperature::Vector{T}
-    temperature_change_rate_mass_fractions::Matrix{T}
-    heat_capacity_pressure_temperature::Vector{T}
-    enthalpy_species_temperature::Vector{T}
-    entropy_species_temperature::Vector{T}
-    enthalpy_reactions_temperature::Vector{T}
-    entropy_reactions_temperature::Vector{T}
-    internal_energy_temperature::Vector{T}
-    forward_rate_constant_temperature::Vector{T}
-    reverse_rate_constant_temperature::Vector{T}
-    rate_of_progress_temperature::Vector{T}
-    production_rate_temperature::Vector{T}
-    mass_change_rate_temperature::Vector{T}
-    molar_concentrations_mass_fractions::Matrix{T}
-    molar_fractions_mass_fractions::Matrix{T}
-    forward_rate_constant_mass_fractions::Matrix{T} #dkfdy
-    reverse_rate_constant_mass_fractions::Matrix{T}
-    rate_of_progress_mass_fractions::Matrix{T}
-    production_rate_mass_fractions::Matrix{T}
-    mass_change_rate_mass_fractions::Matrix{T}
-
-    function Derivatives{T}(mechanism::Mechanism{T}) where {T<:Number}
-        ns = length(mechanism.species)
-        nr = length(mechanism.reactions)
-        return new(
-            zeros(T, 1),
-            zeros(T, 1, ns),
-            zeros(T, ns),
-            zeros(T, ns),
-            zeros(T, ns),
-            zeros(T, nr),
-            zeros(T, nr),
-            zeros(T, ns),
-            zeros(T, nr),
-            zeros(T, nr),
-            zeros(T, nr),
-            zeros(T, ns),
-            zeros(T, ns),
-            zeros(T, ns, ns),
-            zeros(T, ns, ns),
-            zeros(T, nr, ns),
-            zeros(T, nr, ns),
-            zeros(T, nr, ns),
-            zeros(T, ns, ns),
-            zeros(T, ns, ns),
+            (zeros(T, 1), zeros(T, 1), zeros(T, 1, ns), zeros(T, 1, nr)),
+            (zeros(T, ns), zeros(T, ns), zeros(T, ns, ns)),
+            (zeros(T, ns), zeros(T, ns), zeros(T, ns, ns)),
+            (zeros(T, ns), zeros(T, ns), zeros(T, ns, ns)),
+            (zeros(T, ns), zeros(T, ns), zeros(T, ns, ns)),
+            (zeros(T, ns), zeros(T, ns), zeros(T, ns, ns)),
+            (zeros(T, nt + nf), zeros(T, nt + nf), zeros(T, nt + nf, ns)),
+            (zeros(T, ns), zeros(T, ns), zeros(T, ns, ns), zeros(T, ns, nr)),
+            (zeros(T, ns), zeros(T, ns), zeros(T, ns, ns), zeros(T, ns, nr)),
+            (zeros(T, nr), zeros(T, nr), zeros(T, nr, ns)),
+            (zeros(T, nr), zeros(T, nr), zeros(T, nr, ns)),
+            (zeros(T, nr), zeros(T, nr), zeros(T, nr, ns), zeros(T, nr, nr)),
+            (zeros(T, nr), zeros(T, nr), zeros(T, nr, ns), zeros(T, nr, nr)),
+            (zeros(T, nr), zeros(T, nr), zeros(T, nr, ns), zeros(T, nr, nr)),
         )
     end
 end
@@ -154,8 +108,8 @@ mutable struct State{T<:Number}
     pressure::T
     density::T
     mass_fractions::Vector{T}
-    molar_fractions::Vector{T}
-    molar_concentrations::Vector{T}
+    molar_fractions::Tuple{Vector{T},Vector{T},Matrix{T}}
+    molar_concentrations::Tuple{Vector{T},Vector{T},Matrix{T}}
 
     function State{T}(mechanism::Mechanism{T}) where {T<:Number}
         ns = length(mechanism.species)
@@ -164,8 +118,8 @@ mutable struct State{T<:Number}
             zero(T),
             zero(T),
             zeros(T, ns),
-            zeros(T, ns),
-            zeros(T, ns)
+            (zeros(T, ns), zeros(T, ns), zeros(T, ns, ns)),
+            (zeros(T, ns), zeros(T, ns), zeros(T, ns, ns))
         )
     end
 end
@@ -174,7 +128,6 @@ mutable struct Gas{T<:Number}
 
     mechanism::Mechanism{T}
     intermediate::Variables{T}
-    jacobian::Derivatives{T}
     current::State{T}
     initial::State{T}
 
@@ -182,7 +135,6 @@ mutable struct Gas{T<:Number}
         return new(
             mechanism,
             Variables{T}(mechanism),
-            Derivatives{T}(mechanism),
             State{T}(mechanism),
             State{T}(mechanism)
         )

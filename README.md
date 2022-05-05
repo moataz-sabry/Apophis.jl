@@ -4,7 +4,7 @@ A package for the sensitivity analysis of gas-phase chemical and kinetics
 ## Installation
 ```julia
 using Pkg
-Pkg.add(path=".../Apophis")
+Pkg.add(path=".../Apophis.jl")
 ```
 ## Quick Start
 ### Reading a Mechanism

@@ -8,6 +8,35 @@
 7. use filter function
 =#
 
+function trapezoid(ƒ::VecOrMat, t::Vector)
+
+    m = size(ƒ, 2)
+    I = zeros(m)
+
+    for n in 1:length(t)-1, p = 1:m
+        I[p] += 0.5 * (t[n+1] - t[n]) * (ƒ[n+1, p] + ƒ[n, p])
+    end
+
+    return m == 1 ? only(I) : I
+end
+
+function QoI(sol, tₒ, t∞, tᵣ)
+
+    τ = tₒ - t∞
+    ilength = length(last(sol.u))
+
+    t = filter(x -> x > tₒ + 0.01tᵣ, sol.t)
+    T = sol(t, idxs=ilength).u
+
+    tₛ = t .- 0.01tᵣ
+    Tₛ = sol(tₛ, idxs=ilength).u
+
+    I = (T .- Tₛ) .^ 2
+
+    J = trapezoid(I, t) / 2τ
+    return J
+end
+
 searchdir(path, key) = filter(x -> contains(x, key), readdir(path)) ### to easily find data files
 
 function filterdata(criteria, data)
@@ -407,14 +436,6 @@ function init(mech::Symbol, temperature::K, pressure::K=Pₐ; s...) where {K<:Nu
     gasexpr = :(gas = Gas{$K}(readmechanism($strng, $K)))
     eval(gasexpr)
 
-    species = String.(first.(collect(s)))
-    fractions = last.(collect(s))
-    ∑fractions = sum(fractions)
-
-    indicies = indexin(species, gas.mechanism.species)
-    in(nothing, indicies) && error("one or more of species are not part of $(mech) mechanism")
-    ∑fractions ≈ one(K) || @warn "∑Y = $(∑fractions) ≠ 1!"
-
     W⁻¹ = gas.mechanism.inverse_molecular_weight
 
     ## integrate with concentrations? ##
@@ -422,12 +443,23 @@ function init(mech::Symbol, temperature::K, pressure::K=Pₐ; s...) where {K<:Nu
     P = gas.initial.pressure = pressure
 
     Y = gas.initial.mass_fractions
-    X = gas.initial.molar_fractions
-    C = gas.initial.molar_concentrations
+    X, _, _ = gas.initial.molar_fractions
+    C, _, _ = gas.initial.molar_concentrations
 
-    for i in eachindex(indicies)
-        j = indicies[i]
-        Y[j] = fractions[i]
+    if first(s)[1] == :rand
+        Y .= first(s)[2]
+    else
+        species = String.(first.(collect(s)))
+        fractions = last.(collect(s))
+        ∑fractions = sum(fractions)
+
+        indicies = indexin(species, gas.mechanism.species)
+        in(nothing, indicies) && error("one or more of species are not part of $(mech) mechanism")
+        ∑fractions ≈ one(K) || @warn "∑Y = $(∑fractions) ≠ 1!"
+        for i in eachindex(indicies)
+            j = indicies[i]
+            Y[j] = fractions[i]
+        end
     end
 
     W̅ = inv(Y ⋅ W⁻¹)

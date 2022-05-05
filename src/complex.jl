@@ -1,4 +1,4 @@
-function interval((; current, intermediate, mechanism)::Gas{K}; forward = true) where {K<:Number}
+function interval((; current, intermediate, mechanism)::Gas{K}; forward=true) where {K<:Number}
 
     Tₖ = mechanism.common_temperature
     A = mechanism.upper_temperature_coefficients
@@ -18,16 +18,16 @@ function interval((; current, intermediate, mechanism)::Gas{K}; forward = true) 
     return nothing
 end
 
-function polynomials((; current, intermediate, mechanism)::Gas{K}; forward = true) where {K<:Number} ## computes nasa polynomials for species entropy, entahlpy, ...
+function polynomials((; current, intermediate, mechanism)::Gas{K}; forward=true) where {K<:Number} ## computes nasa polynomials for species entropy, entahlpy, ...
 
     coeffs = intermediate.polynomial_coefficients
     a₁, a₂, a₃, a₄, a₅, a₆, a₇ = (view(coeffs, a, :) for a in 1:7) ## multiple assign?
 
-    cₚ = intermediate.heat_capacity_pressure
-    cᵥ = intermediate.heat_capacity_volume
-    h = intermediate.enthalpy_species
-    u = intermediate.internal_energy
-    s = intermediate.entropy_species
+    cₚ = first(intermediate.heat_capacity_pressure)
+    cᵥ = first(intermediate.heat_capacity_volume)
+    h = first(intermediate.enthalpy_species)
+    u = first(intermediate.internal_energy)
+    s = first(intermediate.entropy_species)
 
     T = only(current.temperature)
 
@@ -44,15 +44,15 @@ function polynomials((; current, intermediate, mechanism)::Gas{K}; forward = tru
     return nothing
 end
 
-function concentrations((; current, intermediate, mechanism)::Gas{K}; forward = true) where {K<:Number} ##computes species properties
+function concentrations((; current, intermediate, mechanism)::Gas{K}; forward=true) where {K<:Number} ##computes species properties
 
     W⁻¹ = mechanism.inverse_molecular_weight
     α = mechanism.enhancement_factors
-    M = intermediate.total_molar_concentrations
+    M = first(intermediate.total_molar_concentrations)
 
     Y = current.mass_fractions
-    X = current.molar_fractions
-    C = current.molar_concentrations
+    X = first(current.molar_fractions)
+    C = first(current.molar_concentrations)
     ρ = current.density
 
     W̅ = 1 / sum(Y .* W⁻¹)
@@ -66,7 +66,7 @@ function concentrations((; current, intermediate, mechanism)::Gas{K}; forward = 
     return nothing
 end
 
-function reactionconstants((; current, intermediate, mechanism)::Gas{K}; forward = true) where {K<:Number}
+function reactionconstants((; current, intermediate, mechanism)::Gas{K}; forward=true) where {K<:Number}
     ## optimizable
 
     T = only(current.temperature)
@@ -90,13 +90,15 @@ function reactionconstants((; current, intermediate, mechanism)::Gas{K}; forward
     ∑ν = mechanism.stoichiometric_sum
     a, T₃, T₁, T₂ = (view(mechanism.troe_parameters, :, p) for p in 1:4)
 
-    h = intermediate.enthalpy_species
-    s = intermediate.entropy_species
-    M = view(intermediate.total_molar_concentrations, nt+1:nt+nf)
-    H = intermediate.enthalpy_reactions
-    S = intermediate.entropy_reactions
-    kf = intermediate.forward_rate_constant
-    kr = intermediate.reverse_rate_constant
+    h = first(intermediate.enthalpy_species)
+    s = first(intermediate.entropy_species)
+    M = first(intermediate.total_molar_concentrations)
+    MT = view(M, nt+1:nt+nf)
+
+    H = first(intermediate.enthalpy_reactions)
+    S = first(intermediate.entropy_reactions)
+    kf = first(intermediate.forward_rate_constant)
+    kr = first(intermediate.reverse_rate_constant)
 
     for k in eachindex(A)
         kf[k] = A[k] * T^b[k] * exp(-E[k] * RcT⁻¹)
@@ -107,7 +109,7 @@ function reactionconstants((; current, intermediate, mechanism)::Gas{K}; forward
         kₒ = Aₒ[f] * T^bₒ[f] * exp(-Eₒ[f] * RcT⁻¹)
         k∞ = A∞[f] * T^b∞[f] * exp(-E∞[f] * RcT⁻¹)
 
-        Pᵣ = kₒ * M[f] / k∞
+        Pᵣ = kₒ * MT[f] / k∞
         log10Pᵣ = log10(Pᵣ)
 
         Fc = (1.0 - a[f]) * exp(-T / T₃[f]) + a[f] * exp(-T / T₁[f]) + exp(-T₂[f] / T)
@@ -124,7 +126,7 @@ function reactionconstants((; current, intermediate, mechanism)::Gas{K}; forward
         kₒ = Aₒ[f] * T^bₒ[f] * exp(-Eₒ[f] * RcT⁻¹)
         k∞ = A∞[f] * T^b∞[f] * exp(-E∞[f] * RcT⁻¹)
 
-        Pᵣ = kₒ * M[f] / k∞
+        Pᵣ = kₒ * MT[f] / k∞
         kf[ny+f] = k∞ * Pᵣ / (1.0 + Pᵣ)
     end
 
@@ -145,7 +147,7 @@ function reactionconstants((; current, intermediate, mechanism)::Gas{K}; forward
     return nothing
 end
 
-function rates((; current, intermediate, mechanism)::Gas{K}; forward = true) where {K<:Number}
+function rates((; current, intermediate, mechanism)::Gas{K}; forward=true) where {K<:Number}
 
     nt = length(mechanism.threebody_reactions)
     ne = length(mechanism.elementary_reactions)
@@ -153,8 +155,8 @@ function rates((; current, intermediate, mechanism)::Gas{K}; forward = true) whe
 
     W⁻¹ = mechanism.inverse_molecular_weight
     Y = current.mass_fractions
-    X = current.molar_fractions
-    C = current.molar_concentrations
+    X = first(current.molar_fractions)
+    C = first(current.molar_concentrations)
     W = mechanism.molecular_weight
 
     nur = mechanism.stoichiometric_reactants
@@ -163,15 +165,16 @@ function rates((; current, intermediate, mechanism)::Gas{K}; forward = true) whe
     reactants_indicies = mechanism.reactants_indicies
     products_indicies = mechanism.products_indicies
 
-    cᵥ = intermediate.heat_capacity_volume
-    u = intermediate.internal_energy
-    kf = intermediate.forward_rate_constant
-    kr = intermediate.reverse_rate_constant
-    M = view(intermediate.total_molar_concentrations, 1:nt)
-    q = intermediate.rate_of_progress
-    ω̇ = intermediate.production_rate
-    Ẏ = intermediate.mass_change_rate
-    Ṫ = intermediate.temperature_change_rate
+    cᵥ = first(intermediate.heat_capacity_volume)
+    u = first(intermediate.internal_energy)
+    kf = first(intermediate.forward_rate_constant)
+    kr = first(intermediate.reverse_rate_constant)
+    M = first(intermediate.total_molar_concentrations)
+    MT = view(M, 1:nt)
+    q = first(intermediate.rate_of_progress)
+    ω̇ = first(intermediate.production_rate)
+    Ẏ = first(intermediate.mass_change_rate)
+    Ṫ = first(intermediate.temperature_change_rate)
 
     ρ = current.density
 
@@ -187,7 +190,7 @@ function rates((; current, intermediate, mechanism)::Gas{K}; forward = true) whe
             stepr *= C[i]^nup[k, i]
         end
 
-        k ∈ threebody_range ? q[k] = M[k-ne] * (kf[k] * stepf - kr[k] * stepr) : q[k] = kf[k] * stepf - kr[k] * stepr
+        k ∈ threebody_range ? q[k] = MT[k-ne] * (kf[k] * stepf - kr[k] * stepr) : q[k] = kf[k] * stepf - kr[k] * stepr
 
     end
 
@@ -206,18 +209,18 @@ function rates((; current, intermediate, mechanism)::Gas{K}; forward = true) whe
     return nothing
 end
 
-function step!(gas::Gas{K}, Y::AbstractVector{K}, T::K; forward = true) where {K<:Number} ### AbstractVector allocates +1
+function step!(gas::Gas{K}, Y::AbstractVector{K}, T::K; forward=true) where {K<:Number} ### AbstractVector allocates +1
 
     #gas.current = gas.initial
     gas.current.mass_fractions = Y
     gas.current.temperature[1] = T
     gas.current.density = gas.initial.density ## in init?
 
-    interval(gas; forward = true)
-    polynomials(gas; forward = true)
-    concentrations(gas; forward = true)
-    reactionconstants(gas; forward = true)
-    rates(gas; forward = true)
+    interval(gas; forward=true)
+    polynomials(gas; forward=true)
+    concentrations(gas; forward=true)
+    reactionconstants(gas; forward=true)
+    rates(gas; forward=true)
 
     return nothing
 end
