@@ -5,28 +5,24 @@
 4. offset arrays
 5. indexin function?
 6. duplicate reactions causes error
+7. use filter function
 =#
 
 searchdir(path, key) = filter(x -> contains(x, key), readdir(path)) ### to easily find data files
 
-function isreaction(line) ## checks if the line contains a reaction, used later to assign auxillary parameters to the corresponding reactions
-    occursin(r"<?=>?", line)
+function filterdata(criteria, data)
+
+    regex = regexdictionary[criteria]
+    filtered_data = filter(data) do x
+        occursin(regex, x)
+    end
+    return filtered_data
 end
-
-# :elementary => r"(?!.*\+m)(?=.*<?=>?)"i,
-# :threebody => r"(?<!\()\+m(?!\))"i,
-# :falloff => r"\(\+m\)"i,
-
 function readfile(file_path) ## filters the data file from comment lines
 
-    file_data = String[]
-    for line in eachline(file_path, keep=true)
-        if occursin(r"^((?!\s*!))", line)
-            commentsout = replace(line, r"!.*" => "")
-            push!(file_data, commentsout)
-        end
-    end
-    return file_data
+    file_data = readlines(file_path, keep=true)
+    filtered_data = filterdata(:commentout, file_data)
+    return filtered_data
 end
 
 function parsemoles(molespecies) ## returns the number of moles, parsed as "Float64", and the species of the reactants and products of a given reaction
@@ -91,37 +87,35 @@ end
 
 function extractblock(blocktitel, data) ## extracts data out of elements and species blocks
 
-    block = findblock("$blocktitel", data)
-    blocklength = length(block)
-
-    if isone(blocklength)
-        onlyline = only(block)
-        blockvector = split(onlyline)
-    else
-        joinrange = join(block)
-        blockvector = split(joinrange)
+    block = findblock(blocktitel, data)
+    joinblock = ""
+    for l in block
+        joinblock *= join(l)
     end
 
+    blockvector = split(joinblock)
     return blockvector
 end
 
 function extractequation(reactionline) ## extracts the reaction equation from the reaction line
-    splitreactionline =
-        split(reactionline, r"(?<!(<|=|>|\+))[ \t]+(?!\g<1>)", keepempty=false)
+    regex = r"(?<!(<|=|>|\+))[ \t]+(?!\g<1>)"
+    splitreactionline = split(reactionline, regex, keepempty=false)
     equation = first(splitreactionline)
     return equation
 end
 
 function extractreactions(type, reactionsblock) ## extracts the reaction lines from the reactions block of type: elementary, threebody or falloff
 
-    reactionslines, _ = findlines(type, reactionsblock)
+    reactionslines = filterdata(type, reactionsblock)
     reactions::Vector{SubString{String}} = extractequation.(reactionslines) ##otherwise type Any?
     return reactions
 end
 
 function indexreaction(auxillaryindex, reactionsblock, assignreactions) ## assigns auxillary parameters to the corresponding reactions
 
-    previndex = findprev(isreaction, reactionsblock, auxillaryindex)
+    previndex = findprev(reactionsblock, auxillaryindex) do x
+        occursin(r"<?=>?", x)
+    end
     prevreactionline = reactionsblock[previndex]
 
     prevreaction = extractequation(prevreactionline)
@@ -336,18 +330,18 @@ function readmechanism(title, T) ## main function, calls previous functions in o
 
     if isfile(thermo_file_path)
         thermo_data = readfile(thermo_file_path)
-        thermoblock = findblock("thermo", thermo_data)
+        thermoblock = findblock(:thermo, thermo_data)
     else
-        thermoblock = findblock("thermo", mech_data)
+        thermoblock = findblock(:thermo, mech_data)
     end
 
-    elements = extractblock("elements", mech_data)
-    species = extractblock("species", mech_data)
+    elements = extractblock(:elements, mech_data)
+    species = extractblock(:species, mech_data)
 
     molecular_weight, common_temperature, upper_temperature_coefficients, lower_temperature_coefficients = extractthermo(species, thermoblock)
     inverse_molecular_weight = inv.(molecular_weight)
 
-    reactionsblock = findblock("reactions", mech_data)
+    reactionsblock = findblock(:reactions, mech_data)
 
     elementary_reactions = extractreactions(:elementary, reactionsblock)
     threebody_reactions = extractreactions(:threebody, reactionsblock)

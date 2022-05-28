@@ -1,4 +1,4 @@
-function interval((; current, intermediate, mechanism)::Gas{K}) where {K<:ComplexF64}
+function interval((; current, intermediate, mechanism)::Gas{K}; forward = true) where {K<:Number}
 
     Tₖ = mechanism.common_temperature
     A = mechanism.upper_temperature_coefficients
@@ -18,7 +18,7 @@ function interval((; current, intermediate, mechanism)::Gas{K}) where {K<:Comple
     return nothing
 end
 
-function polynomials((; current, intermediate, mechanism)::Gas{K}) where {K<:ComplexF64} ## computes nasa polynomials for species entropy, entahlpy, ...
+function polynomials((; current, intermediate, mechanism)::Gas{K}; forward = true) where {K<:Number} ## computes nasa polynomials for species entropy, entahlpy, ...
 
     coeffs = intermediate.polynomial_coefficients
     a₁, a₂, a₃, a₄, a₅, a₆, a₇ = (view(coeffs, a, :) for a in 1:7) ## multiple assign?
@@ -44,7 +44,7 @@ function polynomials((; current, intermediate, mechanism)::Gas{K}) where {K<:Com
     return nothing
 end
 
-function concentrations((; current, intermediate, mechanism)::Gas{K}) where {K<:ComplexF64} ##computes species properties
+function concentrations((; current, intermediate, mechanism)::Gas{K}; forward = true) where {K<:Number} ##computes species properties
 
     W⁻¹ = mechanism.inverse_molecular_weight
     α = mechanism.enhancement_factors
@@ -66,7 +66,7 @@ function concentrations((; current, intermediate, mechanism)::Gas{K}) where {K<:
     return nothing
 end
 
-function reactionconstants((; current, intermediate, mechanism)::Gas{K}) where {K<:ComplexF64}
+function reactionconstants((; current, intermediate, mechanism)::Gas{K}; forward = true) where {K<:Number}
     ## optimizable
 
     T = only(current.temperature)
@@ -145,7 +145,7 @@ function reactionconstants((; current, intermediate, mechanism)::Gas{K}) where {
     return nothing
 end
 
-function rates((; current, intermediate, mechanism)::Gas{K}) where {K<:ComplexF64}
+function rates((; current, intermediate, mechanism)::Gas{K}; forward = true) where {K<:Number}
 
     nt = length(mechanism.threebody_reactions)
     ne = length(mechanism.elementary_reactions)
@@ -206,18 +206,18 @@ function rates((; current, intermediate, mechanism)::Gas{K}) where {K<:ComplexF6
     return nothing
 end
 
-function step!(gas::Gas{K}, Y::AbstractVector{K}, T::K) where {K<:ComplexF64} ### AbstractVector allocates +1
+function step!(gas::Gas{K}, Y::AbstractVector{K}, T::K; forward = true) where {K<:Number} ### AbstractVector allocates +1
 
     #gas.current = gas.initial
     gas.current.mass_fractions = Y
     gas.current.temperature[1] = T
     gas.current.density = gas.initial.density ## in init?
 
-    interval(gas)
-    polynomials(gas)
-    concentrations(gas)
-    reactionconstants(gas)
-    rates(gas)
+    interval(gas; forward = true)
+    polynomials(gas; forward = true)
+    concentrations(gas; forward = true)
+    reactionconstants(gas; forward = true)
+    rates(gas; forward = true)
 
     return nothing
 end

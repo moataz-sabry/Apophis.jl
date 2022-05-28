@@ -1,6 +1,7 @@
 ## tuples?
 
 const regexdictionary = Dict(
+    :commentout => r"^((?!\s*!))",
     :elementary => r"(?!.*\+m)(?=.*<?=>?)"i,
     :threebody => r"(?<!\()\+m(?!\))"i,
     :falloff => r"\(\+m\)"i,
@@ -113,7 +114,7 @@ struct Derivatives{T<:Number}
     mass_change_rate_temperature::Vector{T}
     molar_concentrations_mass_fractions::Matrix{T}
     molar_fractions_mass_fractions::Matrix{T}
-    forward_rate_constant_mass_fractions::Matrix{T}
+    forward_rate_constant_mass_fractions::Matrix{T} #dkfdy
     reverse_rate_constant_mass_fractions::Matrix{T}
     rate_of_progress_mass_fractions::Matrix{T}
     production_rate_mass_fractions::Matrix{T}

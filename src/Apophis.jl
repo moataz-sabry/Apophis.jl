@@ -7,11 +7,12 @@ export equilibrate
 export readmechanism
 
 #import BenchmarkTools: @btime ## only for tests?
-using Base.Iterators: filter
 using LinearAlgebra
 using SparseArrays: sparse, SparseMatrixCSC
 using DifferentialEquations
+#using DiffEqCallbacks
 using Sundials
+using Interpolations
 
 const Rc = 1.987261815324 #* u"cal * (K * mol)"
 const R = 8.31446261815324e7 # * u"erg / (K * mol)"

@@ -395,19 +395,19 @@ function rhs((; current, jacobian, intermediate, mechanism)::Gas{K}) where {K<:F
         dc̅ᵥdT += dcₚdT[i] * W⁻¹[i] * Y[i]
     end
 
-    Ṫ[1] = -(ω̇ ⋅ u) / (ρ * c̅ᵥ) # worth it?
+    Ṫ[1] = -(ω̇ ⋅ u) / (ρ * c̅ᵥ) # worth it? #dTdt
     dṪdT[1] = -(Ṫ[1] * dc̅ᵥdT / c̅ᵥ) - (dω̇dT ⋅ u + ω̇ ⋅ dudT) / (ρ * c̅ᵥ)
 
     for i in eachindex(mechanism.species)
 
         X[i] = Y[i] * W⁻¹[i] * W̅
-        Ẏ[i] = ω̇[i] * W[i] / ρ
-        dẎdT[i] = dω̇dT[i] * W[i] / ρ
-        dṪdY[1, i] = -Ṫ[1] * cᵥ[i] * W⁻¹[i] / c̅ᵥ
+        Ẏ[i] = ω̇[i] * W[i] / ρ #dYdt
+        dẎdT[i] = dω̇dT[i] * W[i] / ρ #
+        dṪdY[1, i] = -Ṫ[1] * cᵥ[i] * W⁻¹[i] / c̅ᵥ #
         for j in eachindex(mechanism.species)
             dXdY[i, j] = -Y[i] * W⁻¹[i] * W̅^2 * W⁻¹[j]
-            dẎdY[i, j] = dω̇dY[i, j] * W[i] / ρ
-            dṪdY[i] -= u[j] * dω̇dY[j, i] / (ρ * c̅ᵥ)
+            dẎdY[i, j] = dω̇dY[i, j] * W[i] / ρ #
+            dṪdY[i] -= u[j] * dω̇dY[j, i] / (ρ * c̅ᵥ) #
         end
         dXdY[i, i] += W̅ * W⁻¹[i]
     end
