@@ -350,7 +350,7 @@ end
 
 function readmechanism(title, T) ## main function, calls previous functions in order
 
-    mechanism_path = pkgdir(Apophis, "mechanisms")
+    mechanism_path = pkgdir(Apophis, "test/mechanisms")
     mech_file_path = mechanism_path * "/$(title)_mech.dat"
     thermo_file_path = mechanism_path * "/$(title)_thermo.dat"
     #trans_file_path = mechanism_path * "/$(title)_trans.dat"

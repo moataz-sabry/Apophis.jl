@@ -8,15 +8,11 @@ export readmechanism
 export subspaces
 export monte
 
-
-#import BenchmarkTools: @btime ## only for tests?
 using LinearAlgebra
 using SparseArrays: sparse, SparseMatrixCSC
 using DifferentialEquations
-#using DiffEqCallbacks
 using Sundials
 using Distributions
-using Statistics
 using Polynomials: fit
 
 const Rc = 1.987261815324 #* u"cal * (K * mol)"

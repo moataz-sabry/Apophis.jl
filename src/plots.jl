@@ -35,7 +35,7 @@ const publication_themes = Theme(
         linestyle=[:solid, :dash, :dot, :dashdot, :dashdotdot],
         side=[:left, :right],
     )
-);
+)
 
 CairoMakie.activate!(type="svg")
 
