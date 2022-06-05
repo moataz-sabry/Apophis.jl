@@ -73,7 +73,7 @@ function adjointProblem!(dλ, λ, p, t)
     return nothing
 end
 
-function adjoint(gas; maxis=1e5)
+function adjoint(gas; complex=0, maxis=1e5)
 
     saved_values = SavedValues(Float64, Matrix{Float64})
     save_func(u, t, integrator) = [first(integrator.p).intermediate.mass_change_rate[4]; first(integrator.p).intermediate.temperature_change_rate[4]]
@@ -87,9 +87,84 @@ function adjoint(gas; maxis=1e5)
 
     λₒ = zeros(Float64, 1, ns + 1)
     A = zeros(Float64, ns + 1, ns + 1)
-    p = (gas, fsol, tᵣ, A)
 
-    ODE = ODEProblem(adjointProblem!, λₒ, span, p)
+    if isa(complex, Gas{ComplexF64})
+        p = (complex, fsol, tᵣ, A)
+        ODE = ODEProblem(adjointComplex!, λₒ, span, p)
+    else
+        p = (gas, fsol, tᵣ, A)
+        ODE = ODEProblem(adjointProblem!, λₒ, span, p)
+    end
+
     solution = solve(ODE, CVODE_BDF(), abstol=1e-8, reltol=1e-8, maxiters=Int(maxis), callback=saveg)
     return solution, J, tᵢ, tᵣ, saved_values
+end
+
+### temporary
+function adjointComplex!(dλ, λ, p, t)
+
+    gas, fsol, tᵣ, A = p
+    (; mechanism, current, intermediate) = gas
+    ns = eachindex(mechanism.species)
+
+    u = fsol(t)
+    T = current.temperature[1] = last(u)
+    current.mass_fractions .= view(u, ns)
+    #println(perturbe(gas, :mass_change_rate, :A))
+    intermediate.mass_change_rate[4] .= perturbe(gas, :mass_change_rate, :A)
+    intermediate.temperature_change_rate[4] .= perturbe(gas, :temperature_change_rate, :A)
+    #println(current.temperature)
+    #println(current.mass_fractions)
+    Tₛ = fsol(t - 0.01tᵣ, idxs=last(ns) + 1)
+    #println(only(perturbe(gas, :temperature_change_rate, :temperature)))
+    A[ns, ns], A[ns, end] = perturbe(gas, :mass_change_rate, :mass_fractions), perturbe(gas, :mass_change_rate, :temperature)
+    A[end, ns], A[end, end] = perturbe(gas, :temperature_change_rate, :mass_fractions), only(perturbe(gas, :temperature_change_rate, :temperature))
+
+    mul!(dλ, λ, A, -1.0, 0.0) # -1.0AB :=  -λ * A
+    dλ[end] = Tₛ - T
+    return nothing
+end
+
+function perturbe(gas, output, input, ε=1e-200)
+
+    if input != :A
+        inputvalue = getproperty(gas.current, input)
+        outputvalue = getproperty(gas.intermediate, output)[1]# try
+
+        derivative = zeros(length(outputvalue), length(inputvalue))
+
+        for i in eachindex(inputvalue)
+            inputvalue[i] += (ε)im
+            step!(gas, gas.current.mass_fractions, only(gas.current.temperature); forward=true)
+            inputvalue[i] -= (ε)im
+            for j in eachindex(outputvalue)
+                derivative[j, i] = imag(outputvalue[j] / ε)
+            end
+        end
+    else
+        inputvalue1 = view(getproperty(gas.mechanism, :pressure_independant_parameters), :, 1)
+        inputvalue2 = view(getproperty(gas.mechanism, :high_pressure_parameters), :, 1)
+        outputvalue = getproperty(gas.intermediate, output)[1]# try
+
+        derivative = zeros(length(outputvalue), length(gas.mechanism.reactions))
+
+        for i in eachindex(inputvalue1)
+            inputvalue1[i] += (ε)im
+            step!(gas, gas.current.mass_fractions, only(gas.current.temperature); forward=true)
+            inputvalue1[i] -= (ε)im
+            for j in eachindex(outputvalue)
+                derivative[j, i] = imag(outputvalue[j] / ε)
+            end
+        end
+        for i in eachindex(inputvalue2)
+            inputvalue2[i] += (ε)im
+            step!(gas, gas.current.mass_fractions, only(gas.current.temperature); forward=true)
+            inputvalue2[i] -= (ε)im
+            for j in eachindex(outputvalue)
+                derivative[j, length(inputvalue1)+i] = imag(outputvalue[j] / ε)
+            end
+        end
+    end
+
+    return derivative
 end

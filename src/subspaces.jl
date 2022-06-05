@@ -8,9 +8,9 @@ function randsamples(gas, s) # s: number of samples
     return x
 end
 
-function sensitivity(gas)
-    bsol, J, tᵢ, tᵣ, ƒs = adjoint(gas)
-    ƒ = ƒs.saveval
+function sensitivity(gas; complex=nothing)
+    bsol, J, tᵢ, tᵣ, ƒs = adjoint(gas; complex=complex)
+    ƒ = real(ƒs.saveval)
     n = length(gas.mechanism.reactions)
 
     y = zeros(length(ƒs.t), n)

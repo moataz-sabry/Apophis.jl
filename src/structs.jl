@@ -1,9 +1,8 @@
 ## tuples?
 
-## H2
 const UF = Dict(
     :H2 => [1.5, 1.3, 2.0, 1.5, 2.0, 3.0, 1.2, 3.0, 2.5, 1.4, 3.0, 2.0, 3.0, 2.0, 2.0, 2.0, 2.0, 3.0, 2.0, 1.2, 2.5], ## Refernce?
-    :GRI3 => rand(1.0:0.1:3.0, 325)
+    :GRI3 => 2.5 * ones(Float64, 325)
 )
 
 const regexdictionary = Dict(
@@ -128,8 +127,8 @@ mutable struct Gas{T<:Number}
 
     mechanism::Mechanism{T}
     intermediate::Variables{T}
-    current::State{T}
     initial::State{T}
+    current::State{T}
 
     function Gas{T}(mechanism::Mechanism{T}) where {T<:Number}
         return new(

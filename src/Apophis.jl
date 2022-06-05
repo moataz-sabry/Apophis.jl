@@ -5,6 +5,7 @@ export init
 export step!
 export equilibrate
 export readmechanism
+export sensitivity
 export subspaces
 export monte
 
