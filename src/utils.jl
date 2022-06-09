@@ -116,7 +116,7 @@ function decompose(equation) ## decomposes an equation into its reactants and pr
     lhs = first(equationsplit)
     rhs = last(equationsplit)
 
-    regex = r"\(?\+m?\)?|\s+"i
+    regex = r"\s*\+\s*m(?![a-z])\s*|\s+|\(\+\s*m\)|\+"i #r"\(?\+m?\)?|\s+"i this not working in case +MVOX
     reactants = split(lhs, regex, keepempty=false)
     products = split(rhs, regex, keepempty=false)
     return reactants, products
@@ -150,7 +150,7 @@ function extractblock(blocktitel, data) ## extracts data out of elements and spe
 end
 
 function extractequation(reactionline) ## extracts the reaction equation from the reaction line
-    regex = r"(?<!(<|=|>|\+))[ \t]+(?!\g<1>)"
+    regex = r"(?<!(<|=|>|\+))[ \t]+(?!\g<1>)" ##maybe split reverse with limit = 4?
     splitreactionline = split(reactionline, regex, keepempty=false)
     equation = first(splitreactionline)
     return equation
@@ -192,10 +192,13 @@ function extractauxillary(keyword, reactionsblock, assignreactions) ## fills a m
             end
         end
         auxparameters =
-            split(auxlines[i], r"^.*?(?=[\s+-\/]\d(?:\.|\d|\s))|[\s\/]"i, keepempty=false) #r"[ /]|(?i)troe(?-i)"   \s+|[a-df-z\/]|(?<!\d)e
-
+            split(auxlines[i], r"^.*?(?=[\s+-\/]\d*\.\d*)|[\s\/]"i, keepempty=false) #r"[ /]|(?i)troe(?-i)"   \s+|[a-df-z\/]|(?<!\d)e
         for parameter in eachindex(auxparameters)
-            auxmatrix[assignindex, parameter] = parse(Float64, auxparameters[parameter])
+            auxmatrix[assignindex, parameter] = try
+                parse(Float64, auxparameters[parameter])
+            catch
+                println(auxparameters)
+            end
         end
         push!(isaux, assignindex)
     end
@@ -230,10 +233,13 @@ end
 function assignstoichiometry!(stoichiomatrix, reactionindex, compounds, specieslist) ## assigns stoichiometric ratios to the corresponding species in stoichiometry matrix
 
     for compound in compounds
+        #println(compound)
         moles, species = parsemoles(compound)
         regex = Regex("^\\Q$(species)\\E\$", "i") ## fix this regarding findindex
         #show(regex)
         speciesindex = findindex(regex, specieslist)
+        isnothing(speciesindex) && println(reactionindex)
+        isnothing(speciesindex) && println(compound)
         stoichiomatrix[reactionindex, speciesindex] += moles
     end
     return nothing

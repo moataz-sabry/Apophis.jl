@@ -3,15 +3,14 @@ A package for the sensitivity analysis of gas-phase chemical and kinetics
 
 ## Installation
 ```julia
-using Pkg
-Pkg.add(path=".../Apophis.jl")
+pkg> add https://github.com/moataz-sabry/Apophis.jl
 ```
 ## Quick Start
 ### Reading a Mechanism
 ```julia
 julia> using Apophis
 
-julia> readmechanism(:GRI3, print = true)
+julia> readmechanism(:GRI3)
 # Creates an instance of the Mechanism struct based on the given mechanism data files
 
 GRI3:	5 elements	53 species	325 reactions
@@ -23,7 +22,7 @@ GRI3:	5 elements	53 species	325 reactions
 ```
 ### Setting the State
 ```julia
-julia> init(:H2, 1000.0, 1.59e6, H2 = 0.29, N2 = 0.56, O2 = 0.15)
+julia> init(:H2, 1000.0, 1.59e6; H2 = 0.29, N2 = 0.56, O2 = 0.15)
 # Creates an instance of the Gas struct based on the given mechanism and initial conditions
 
 julia> gas.initial.temperature # T [K]
@@ -44,10 +43,10 @@ julia> gas.mechanism.molecular_weight # W [g/mole]
 ```
 ### Chemical Kinetics
 ```julia
-julia> step!(gas, gas.initial.mass_fractions, gas.initial.temperature)
+julia> step!(gas, gas.initial.mass_fractions, only(gas.initial.temperature))
 # Computes state and intermediate variables based on the given mass fractions and temperature
 
-julia> gas.intermediate.production_rate # ω̇ [mole/(cm³⋅s)]
+julia> gas.intermediate.production_rate[1] # ω̇ [mole/(cm³⋅s)]
 10-element Vector{Float64}:
   2.2300800003459409e-10
  -2.2300796859512652e-10
@@ -60,13 +59,13 @@ julia> gas.intermediate.production_rate # ω̇ [mole/(cm³⋅s)]
   0.0
   0.0
   
-julia> gas.intermediate.temperature_change_rate # Ṫ [K/s]
+julia> gas.intermediate.temperature_change_rate[1] # Ṫ [K/s]
 1-element Vector{Float64}:
  -0.12101709573654974
 ```
 ### Chemical Equilibrium
 ```julia
-julia> equilibrate(4.0, gas)
+julia> equilibrate(gas)
 # Sets a gas mixture to a state of chemical equilibrium
 
 julia> gas.current.temperature
