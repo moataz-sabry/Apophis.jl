@@ -21,7 +21,7 @@ const R = 8.31446261815324e7 # * u"erg / (K * mol)"
 const Pₐ = 1013250.0 #* u"dyn / cm^2"
 const d = 0.14
 
-include("structs.jl")
+include("types.jl")
 include("utils.jl")
 include("complex.jl")
 include("forward.jl")

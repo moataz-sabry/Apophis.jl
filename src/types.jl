@@ -1,31 +1,3 @@
-## tuples?
-
-const UF = Dict(
-    :H2 => [1.5, 1.3, 2.0, 1.5, 2.0, 3.0, 1.2, 3.0, 2.5, 1.4, 3.0, 2.0, 3.0, 2.0, 2.0, 2.0, 2.0, 3.0, 2.0, 1.2, 2.5], ## Refernce?
-    :GRI3 => 2.5 * ones(Float64, 325)
-)
-
-const regexdictionary = Dict(
-    :commentout => r"^((?!\s*!))",
-    :elementary => r"(?!.*\+m)(?=.*<?=>?)"i,
-    :threebody => r"(?<!\()\+m(?!\))"i,
-    :falloff => r"\(\+m\)"i,
-    :low => r"low"i,
-    :troe => r"troe"i,
-    :rev => r"rev"i,
-    :alpha => r"^(?!.*(plog|rev|low|troe)).*/.*$"i,
-    :high => r"<?=>?"i,
-) ## contains regular expressions for extracting data based on a specific keyword
-
-const elementsweight = Dict(
-    "H" => 1.00784,
-    "O" => 15.9994,
-    "C" => 12.0107,
-    "N" => 14.0067,
-    "AR" => 39.948,
-    "HE" => 4.002602,
-) ## contains molecular weight for the most common elements
-
 struct Mechanism{T<:Number}
 
     ## struct containing the main data extracted from the mechanism files

@@ -6,7 +6,30 @@
 5. indexin function?
 6. duplicate reactions causes error
 7. use filter function
+8. something to tell why it could'nt read the mechanism
 =#
+
+const regexdictionary = Dict(
+    :commentout => r"^((?!\s*!))",
+    :elementary => r"(?!.*\+m)(?=.*<?=>?)"i,
+    :threebody => r"(?<!\()\+m(?!\))"i,
+    :falloff => r"\(\+m\)"i,
+    :low => r"low"i,
+    :troe => r"troe"i,
+    :rev => r"rev"i,
+    :alpha => r"^(?!.*(plog|rev|low|troe)).*/.*$"i,
+    :high => r"<?=>?"i,
+) ## contains regular expressions for extracting data based on a specific keyword
+
+const elementsweight = Dict(
+    "H" => 1.00784,
+    "O" => 15.9994,
+    "C" => 12.0107,
+    "N" => 14.0067,
+    "AR" => 39.948,
+    "HE" => 4.002602,
+) ## contains molecular weight for the most common elements
+
 
 function trapezoid(ƒ::VecOrMat, t::Vector)
 
@@ -50,7 +73,7 @@ end
 function readfile(file_path) ## filters the data file from comment lines
 
     file_data = readlines(file_path, keep=true)
-    filtered_data = filterdata(:commentout, file_data)
+    filtered_data = replace.(filterdata(:commentout, file_data), r"!.*" => "") ## quick fix
     return filtered_data
 end
 
@@ -264,17 +287,19 @@ end
 
 function findlineone(species, specieslist, thermoblock) ## finds line number one of a species in the thermodynamics block
 
-    speciesregex = Regex("^\\s*(\\Q$(specieslist[species])\\E)\\s+.*1\\s*\$", "i") ## "^\\h*(\\Q$(specieslist[species])\\E)\\h+.*1\\h*\$" old regex
+    speciesregex = Regex("^\\s*(\\Q$(specieslist[species])\\E)")#\\s+.*1\\s*\$", "i") ## "^\\h*(\\Q$(specieslist[species])\\E)\\h+.*1\\h*\$" old regex
     speciesindex = findindex(speciesregex, thermoblock)
     speciesline = thermoblock[speciesindex]
     return speciesline, speciesindex
 end
 
 function findtemperature(speciesline) ## finds the middle temperature in line 1 for a species in the thermodynamics block
-    tempmatch = match(r"\d+\.\d*(?=\s+1\D)", speciesline)
-    #show(speciesline)
-    temperature = parse(Float64, tempmatch.match)
-    return temperature
+    tempmatches = eachmatch(r"\d+\.\d*", speciesline)
+    temperatures = collect(tempmatches)
+    #lowtemperature = parse(Float64, temperatures[1].match)
+    #hightemperature = parse(Float64, temperatures[2].match)
+    commontemperature = parse(Float64, temperatures[3].match)
+    return commontemperature
 end
 
 function sortcoeffs(speciesindex, thermoblock) ## sorts the thermodynamic coeffs for better data processing
@@ -295,11 +320,12 @@ function extractthermo(specieslist, thermoblock) ## extracts the thermodynamic c
 
     for species in eachindex(specieslist)
         speciesline, speciesindex = findlineone(species, specieslist, thermoblock)
-
+        #println(speciesline)
         midtemperatures[species] = findtemperature(speciesline)
         moleweight[species] = extractweight(speciesline)
 
         splitcoeffs = sortcoeffs(speciesindex, thermoblock)
+        #println(splitcoeffs)
 
         for coeff in 1:totalcoefficients
             highcoeffmatrix[coeff, species] = parse(Float64, splitcoeffs[coeff])
