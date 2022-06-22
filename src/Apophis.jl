@@ -14,11 +14,10 @@ using SparseArrays: sparse, SparseMatrixCSC
 using DifferentialEquations
 using Sundials
 using Distributions
-using Polynomials: fit
 
-const Rc = 1.987261815324 #* u"cal * (K * mol)"
+const Rc = 1.987261815324 # * u"cal * (K * mol)"
 const R = 8.31446261815324e7 # * u"erg / (K * mol)"
-const Pₐ = 1013250.0 #* u"dyn / cm^2"
+const Pₐ = 1013250.0 # * u"dyn / cm^2"
 const d = 0.14
 
 include("types.jl")

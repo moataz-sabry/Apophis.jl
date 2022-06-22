@@ -45,7 +45,7 @@ end
 
 function QoI(sol, tₒ, t∞, tᵣ)
 
-    τ = tₒ - t∞
+    τ = t∞ - tₒ
     ilength = length(last(sol.u))
 
     t = filter(x -> x > tₒ + 0.01tᵣ, sol.t)
@@ -382,7 +382,7 @@ end
 
 function readmechanism(title, T) ## main function, calls previous functions in order
 
-    mechanism_path = pkgdir(Apophis, "test/mechanisms")
+    mechanism_path = pkgdir(Apophis, "test/mechanisms/$(title)")
     mech_file_path = mechanism_path * "/$(title)_mech.dat"
     thermo_file_path = mechanism_path * "/$(title)_thermo.dat"
     #trans_file_path = mechanism_path * "/$(title)_trans.dat"
