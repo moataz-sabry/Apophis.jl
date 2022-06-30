@@ -178,7 +178,7 @@ function rates((; current, intermediate, mechanism)::Gas{K}; forward=true) where
 
     ρ = current.density
 
-    for k in eachindex(gas.mechanism.reactions)
+    for k in eachindex(mechanism.reactions)
 
         stepf = 1.0
         for i in reactants_indicies[k]
