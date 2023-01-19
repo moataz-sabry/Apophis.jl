@@ -214,7 +214,7 @@ function step!(gas::Gas{K}, Y::AbstractVector{K}, T::K; forward=true) where {K<:
     #gas.current = gas.initial
     gas.current.mass_fractions = Y
     gas.current.temperature[1] = T
-    gas.current.density = gas.initial.density ## in init?
+    #gas.current.density = gas.initial.density ## in init?
 
     interval(gas; forward=true)
     polynomials(gas; forward=true)
