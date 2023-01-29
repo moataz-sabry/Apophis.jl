@@ -1,4 +1,4 @@
- &! Supplementary material to 
+! Supplementary material to 
 ! L. Cai et al. PROCI 2019
 ! This mechanism has been validated for the oxidation of following species
 !
@@ -1880,7 +1880,7 @@ TXC4H9CHO+HO2=>TXC4H9CO+H2O2             1.000e+12    0.000  11919.93
 TXC4H9CHO+OH=>TXC4H9CO+H2O               2.690e+10    0.760   -340.11
 TXC4H9CHO+O=>TXC4H9CO+OH                 7.180e+12    0.000   1389.10
 TXC4H9CO<=>TXC4H9+CO                     2.517e+23   -2.881  13489.96
-     REV / 1.500e+11    0.000   4809.99 /
+     !REV / 1.500e+11    0.000   4809.99 /
 NEOXC6H11=>IXC4H8+C2H3                   4.792e+17   -1.230  29640.06
 NEOXC5H10OOH=>OH+CH2O+IXC4H8             3.011e+17   -1.170  29950.05
 NEOXC5H10OOH=>IXC4H7OOH+CH3              9.027e+21   -2.341  32830.07
@@ -1888,21 +1888,21 @@ IXC4H7OOH=>OH+IXC4H7O                    1.175e+19   -1.875  48148.18
 AXC3H5OOH=>C3H5O+OH                      1.280e+27   -3.610  46333.17
 CH2CH2CHO<=>C2H4+HCO                     2.110e+19   -1.850  26239.72
 PXC7H15<=>TXC4H9+C3H6                    2.308e+23   -2.801  29340.11
-     REV / 1.500e+11    0.000   7200.05 /
+     !REV / 1.500e+11    0.000   7200.05 /
 YXC7H15<=>XXC7H14+H                      1.437e+13    0.230  37690.01
-     REV / 2.600e+13    0.000   1200.05 /
+     !REV / 2.600e+13    0.000   1200.05 /
 YXC7H15=>IXC3H7+IXC4H8                   2.220e+20   -2.060  32469.89
 YXC7H15<=>YXC7H14+H                      3.093e+13    0.049  36390.06
-     REV / 2.600e+13    0.000   2500.00 /
+     !REV / 2.600e+13    0.000   2500.00 /
 PXC7H14<=>TXC4H9+AXC3H5                  1.861e+27   -3.388  74280.11
-     REV / 7.220e+14   -0.750   -130.98 /
+     !REV / 7.220e+14   -0.750   -130.98 /
 YXC7H14<=>CH3+CC6H11XB                   4.469e+22   -2.128  75429.97
-     REV / 1.930e+14   -0.320      0.00 /
+     !REV / 1.930e+14   -0.320      0.00 /
 XXC7H14<=>IXC3H7+IXC4H7                  2.211e+24   -2.392  74669.93
-     REV / 1.280e+14   -0.350      0.00 /
+     !REV / 1.280e+14   -0.350      0.00 /
 OXC7H14+H=>PXC7H15                       1.000e+13    0.000   2500.00
 OXC7H14<=>CC6H11XB+CH3                   3.087e+24   -2.516  74099.90
-     REV / 1.020e+14   -0.320   -130.98 /
+     !REV / 1.020e+14   -0.320   -130.98 /
 YC7H13XY2+HO2=>YC7H13OXY2+OH             9.640e+12    0.000      0.00
 YC7H13XY2+CH3O2=>YC7H13OXY2+CH3O         9.640e+12    0.000      0.00
 YC7H13OXY2=>CH3COCH3+PXC3H4+CH3          1.310e+18   -1.300  29419.93
@@ -1913,7 +1913,7 @@ CC6H11XB+CH3O2=>CC6H11OXB+CH3O           9.640e+12    0.000      0.00
 CC6H11XB+HO2=>CC6H11OXB+OH               9.640e+12    0.000      0.00
 CC6H11OXB=>CH3COCH3+SXC3H5               7.180e+17   -1.200  28369.98
 NEOXC5H11<=>IXC4H8+CH3                   8.466e+17   -1.111  32929.97
-     REV / 1.300e+03    2.480   8520.08 /
+     !REV / 1.300e+03    2.480   8520.08 /
 IC4H7XI1=>PXC3H4+CH3                     2.103e+12    0.080  29950.05
 C5H4CH2+H<=>A1XC6H6+H                    1.500e+12    0.500   2000.48
 NXC4H5+C2H2<=>C5H4CH2+H                  4.620e+15   -0.890   9141.97

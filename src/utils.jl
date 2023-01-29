@@ -1,509 +1,114 @@
-#= to-do list
-1. not to create auxillary matrices if the keyword is not to be found at all in the data file
-2. better regexes
-3. cut down operations for upcoming calculations, ex. W⁻¹
-4. offset arrays
-5. indexin function?
-6. duplicate reactions causes error
-7. use filter function
-8. something to tell why it could'nt read the mechanism
-=#
+export 
+    Gas, State, Species, Reaction, TPC!, TρC!, TPY!, TPX!, TρY!, TρX!
 
-const regexdictionary = Dict(
-    :commentout => r"^((?!\s*!))",
-    :elementary => r"(?!.*\+m)(?=.*<?=>?)"i,
-    :threebody => r"(?<!\()\+m(?!\))"i,
-    :falloff => r"\(\+m\)"i,
-    :low => r"low"i,
-    :troe => r"troe"i,
-    :rev => r"rev"i,
-    :alpha => r"^(?!.*(plog|rev|low|troe)).*/.*$"i,
-    :high => r"<?=>?"i,
-) ## contains regular expressions for extracting data based on a specific keyword
+@generated (t::Union{NTuple{N, Function}, NTuple{N, Arrhenius}})(x...) where N = :($((:(t[$i](x...)) for i in OneTo(N))...),)
 
-const elementsweight = Dict(
-    "H" => 1.00784,
-    "O" => 15.9994,
-    "C" => 12.0107,
-    "N" => 14.0067,
-    "AR" => 39.948,
-    "HE" => 4.002602,
-) ## contains molecular weight for the most common elements
+Base.match(what::Symbol, data::AbstractString) = match(regextionary[what], data)
+Base.eachmatch(what::Symbol, data::AbstractString) = eachmatch(regextionary[what], data)
 
+Base.show(io::IO, s::Species) = print(io, s.formula)
+Base.show(io::IO, r::AbstractReaction) = print(io, r.equation)
+Base.show(io::IO, (; state)::Gas) = foreach(f -> println(io, "$f: $(getfield(state, f))"), fieldnames(State))
 
-function trapezoid(ƒ::VecOrMat, t::Vector)
-
-    m = size(ƒ, 2)
-    I = zeros(m)
-
-    for n in 1:length(t)-1, p = 1:m
-        I[p] += 0.5 * (t[n+1] - t[n]) * (ƒ[n+1, p] + ƒ[n, p])
+function find_init((; mechanism, state)::Gas{N}, I) where {N<:Number}
+    S = zero(state.X)
+    for (s, f) in eachmatch(regextionary[:inputs], I)
+        species = assign(mechanism.species, s)
+        S[species.k] = parse(N, f)
     end
-
-    return m == 1 ? only(I) : I
+    return S
 end
 
-function QoI(sol, tₒ, t∞, tᵣ)
-
-    τ = t∞ - tₒ
-    ilength = length(last(sol.u))
-
-    t = filter(x -> x > tₒ + 0.01tᵣ, sol.t)
-    T = sol(t, idxs=ilength).u
-
-    tₛ = t .- 0.01tᵣ
-    Tₛ = sol(tₛ, idxs=ilength).u
-
-    I = (T .- Tₛ) .^ 2
-
-    J = trapezoid(I, t) / 2τ
-    return J
-end
-
-searchdir(path, key) = filter(x -> contains(x, key), readdir(path)) ### to easily find data files
-
-function filterdata(criteria, data)
-
-    regex = regexdictionary[criteria]
-    filtered_data = filter(data) do x
-        occursin(regex, x)
+function set!(gas::Gas{N}; init...) where {N<:Number}
+    T = haskey(init, :T) ? init[:T] |> (T -> T isa Quantity ? ustrip(u"K", T) : T) |> N : gas.state.T
+    if haskey(init, :Y) && haskey(init, :P)
+        Yᵢ = init[:Y]
+        Y = Yᵢ isa AbstractVector ? Yᵢ : find_init(gas, init[:Y])
+        P = init[:P] |> (P -> P isa Quantity ? ustrip(u"dyn/cm^2", P) : P) |> N
+        TPY!(gas, T, P, Y)
+    elseif haskey(init, :Y) && haskey(init, :ρ)
+        Yᵢ = init[:Y]
+        Y = Yᵢ isa AbstractVector ? Yᵢ : find_init(gas, init[:Y])
+        ρ = init[:ρ] |> (ρ -> ρ isa Quantity ? ustrip(u"g/cm^3", ρ) : ρ) |> N
+        TρY!(gas, T, ρ, Y)
+    elseif haskey(init, :X) && haskey(init, :P)
+        Xᵢ = init[:X]
+        X = Xᵢ isa AbstractVector ? Xᵢ : find_init(gas, init[:X])
+        P = init[:P] |> (P -> P isa Quantity ? ustrip(u"dyn/cm^2", P) : P) |> N
+        TPX!(gas, T, P, X) |> N
+    elseif haskey(init, :Y) && haskey(init, :ρ)
+        Xᵢ = init[:X]
+        X = Xᵢ isa AbstractVector ? Xᵢ : find_init(gas, init[:X])
+        ρ = init[:ρ] |> (ρ -> ρ isa Quantity ? ustrip(u"g/cm^3", ρ) : ρ) |> N
+        TρX!(gas, T, ρ, X)
     end
-    return filtered_data
-end
-function readfile(file_path) ## filters the data file from comment lines
-
-    file_data = readlines(file_path, keep=true)
-    filtered_data = replace.(filterdata(:commentout, file_data), r"!.*" => "") ## quick fix
-    return filtered_data
+    return gas.state
 end
 
-function parsemoles(molespecies) ## returns the number of moles, parsed as "Float64", and the species of the reactants and products of a given reaction
-
-    T = Float64
-    if occursin(r"^\d", molespecies)
-        splitcompound = split(molespecies, r"(?<=^\d)") ## not working with double digits or decimal moles
-        molestring = first(splitcompound)
-        moles = parse(T, molestring)
-        species = last(splitcompound)
-    else
-        moles = one(T)
-        species = molespecies
-    end
-    return moles, species
-end
-
-function findindex(item, itemlist) ## assigns the given species/reaction to an index in the species/reactions vector
-
-    itemindex = findfirst(itemlist) do x ## indexin?
-        occursin(item, x)
-    end
-
-    return itemindex
-end
-
-function findlines(key, list) ## finds the indicies and lines of the given keyword in the given list
-
-    regex = get(regexdictionary, key, nothing) ## indexin?
-    keyindices = findall(list) do x
-        occursin(regex, x)
-    end
-    keylines = list[keyindices]
-    return keylines, keyindices
-end
-
-function decompose(equation) ## decomposes an equation into its reactants and products
-    equationsplit = split(equation, r"\s*<?=>?\s*", keepempty=false)
-    lhs = first(equationsplit)
-    rhs = last(equationsplit)
-
-    regex = r"\s*\+\s*m(?![a-z])\s*|\s+|\(\+\s*m\)|\+"i #r"\(?\+m?\)?|\s+"i this not working in case +MVOX
-    reactants = split(lhs, regex, keepempty=false)
-    products = split(rhs, regex, keepempty=false)
-    return reactants, products
-end
-
-function findblock(blocktitel, data) ## returns the data of a block from the given data file, example: SPECIES or ELEMENTS block
-
-    regex = Regex("^\\h*$blocktitel", "i")
-    ifirst = findindex(regex, data)
-    ifirst += 1
-
-    ilast = findnext(data, ifirst) do x
-        occursin(r"^end"i, x)
-    end
-    isnothing(ilast) ? ilast = length(data) - 1 : ilast -= 1
-
-    block = data[ifirst:ilast]
-    return block
-end
-
-function extractblock(blocktitel, data) ## extracts data out of elements and species blocks
-
-    block = findblock(blocktitel, data)
-    joinblock = ""
-    for l in block
-        joinblock *= join(l)
-    end
-
-    blockvector = split(joinblock)
-    return blockvector
-end
-
-function extractequation(reactionline) ## extracts the reaction equation from the reaction line
-    regex = r"(?<!(<|=|>|\+))[ \t]+(?!\g<1>)" ##maybe split reverse with limit = 4?
-    splitreactionline = split(reactionline, regex, keepempty=false)
-    equation = first(splitreactionline)
-    return equation
-end
-
-function extractreactions(type, reactionsblock) ## extracts the reaction lines from the reactions block of type: elementary, threebody or falloff
-
-    reactionslines = filterdata(type, reactionsblock)
-    reactions::Vector{SubString{String}} = extractequation.(reactionslines) ##otherwise type Any?
-    return reactions
-end
-
-function indexreaction(auxillaryindex, reactionsblock, assignreactions) ## assigns auxillary parameters to the corresponding reactions
-
-    previndex = findprev(reactionsblock, auxillaryindex) do x
-        occursin(r"<?=>?", x)
-    end
-    prevreactionline = reactionsblock[previndex]
-
-    prevreaction = extractequation(prevreactionline)
-    assignindex = findindex(prevreaction, assignreactions)
-    return prevreaction, assignindex
-end
-
-function extractauxillary(keyword, reactionsblock, assignreactions) ## fills a matrix with auxillary parameters
-
-    isequal(keyword, :troe) ? totalparameters = 4 : totalparameters = 3
-
-    auxlines, auxindicies = findlines(keyword, reactionsblock)
-
-    totalreactions = length(assignreactions)
-    auxmatrix = zeros(Float64, totalreactions, totalparameters)
-    isaux = Int64[]
-    for i in eachindex(auxindicies)
-        prevreaction, assignindex = indexreaction(auxindicies[i], reactionsblock, assignreactions)
-        if auxmatrix[assignindex, 1] != 0.0
-            assignindex = findnext(assignreactions, assignindex + 1) do x ## united against duplicates
-                occursin(prevreaction, x)
-            end
-        end
-        auxparameters =
-            split(auxlines[i], r"^.*?(?=[\s+-\/]\d*\.\d*)|[\s\/]"i, keepempty=false) #r"[ /]|(?i)troe(?-i)"   \s+|[a-df-z\/]|(?<!\d)e
-        for parameter in eachindex(auxparameters)
-            auxmatrix[assignindex, parameter] = try
-                parse(Float64, auxparameters[parameter])
-            catch
-                println(auxparameters)
-            end
-        end
-        push!(isaux, assignindex)
-    end
-    return isaux, auxmatrix
-end
-
-function extractalpha(specieslist, reactionsblock, assignreactions) ## fills a matrix with limiting factors
-
-    alphalines, alphaindices = findlines(:alpha, reactionsblock)
-
-    totalspecies = length(specieslist)
-    totalreactions = length(assignreactions)
-    alphamatrix = ones(Float64, totalreactions, totalspecies)
-
-    for l in eachindex(alphalines)
-        _, reactionindex = indexreaction(alphaindices[l], reactionsblock, assignreactions)
-        speciesfactors = split(alphalines[l], r"[\s/]", keepempty=false)
-        totalfactors = length(speciesfactors)
-
-        for i = 1:2:totalfactors
-            species = speciesfactors[i]
-            factorvalue = speciesfactors[i+1]
-
-            speciesindex = findindex(species, specieslist)
-            parsevalue = parse(Float64, factorvalue)
-            alphamatrix[reactionindex, speciesindex] = parsevalue
-        end
-    end
-    return alphamatrix
-end
-
-function assignstoichiometry!(stoichiomatrix, reactionindex, compounds, specieslist) ## assigns stoichiometric ratios to the corresponding species in stoichiometry matrix
-
-    for compound in compounds
-        #println(compound)
-        moles, species = parsemoles(compound)
-        regex = Regex("^\\Q$(species)\\E\$", "i") ## fix this regarding findindex
-        #show(regex)
-        speciesindex = findindex(regex, specieslist)
-        isnothing(speciesindex) && println(reactionindex)
-        isnothing(speciesindex) && println(compound)
-        stoichiomatrix[reactionindex, speciesindex] += moles
-    end
-    return nothing
-end
-
-function extractstoichiometry(reactionlist, specieslist) ## fills matrices with stoichiometry
-
-    totalspecies = length(specieslist)
-    totalreactions = length(reactionlist)
-
-    stoichioreactants = zeros(Float64, totalreactions, totalspecies)
-    stoichioproducts = zeros(Float64, totalreactions, totalspecies)
-
-    for reactionindex in eachindex(reactionlist)
-        reactants, products = decompose(reactionlist[reactionindex])
-        assignstoichiometry!(stoichioreactants, reactionindex, reactants, specieslist)
-        assignstoichiometry!(stoichioproducts, reactionindex, products, specieslist)
-    end
-
-    stoichiosmatrix = stoichioproducts - stoichioreactants
-    stoichiosum = dropdims(sum(stoichiosmatrix, dims=2), dims=2)
-
-    return sparse(stoichiosmatrix), stoichioreactants, stoichioproducts, stoichiosum
-end
-
-function stoichiometric_indices(stoichiosmatrix) ## could be integrated in previous function
-
-    A = stoichiosmatrix
-    indicies = [Int[] for _ in axes(A, 1)]
-    for i in axes(A, 2), k in axes(A, 1)
-        iszero(A[k, i]) || push!(indicies[k], i)
-    end
-    return indicies
-end
-
-function extractweight(speciesline) ## computes the molecular weight from the given species line
-
-    moleweight = 0.0
-    regex = r"(?:H|O|N|C|AR|HE)\s+\d(?=H|O|N|C|AR|HE|(?=\s*(?:G|L|S|0)))"i ## bad?
-    matchpairs = eachmatch(regex, speciesline)
-
-    for pair in matchpairs
-        el, moles = split(pair.match)
-
-        elweight = get(elementsweight, uppercase(el), nothing) ## uppercase to avoid Ar not being found
-        elmoles = parse(Float64, moles)
-        moleweight += elweight * elmoles
-    end
-    return moleweight
-end
-
-function findlineone(species, specieslist, thermoblock) ## finds line number one of a species in the thermodynamics block
-
-    speciesregex = Regex("^\\s*(\\Q$(specieslist[species])\\E)")#\\s+.*1\\s*\$", "i") ## "^\\h*(\\Q$(specieslist[species])\\E)\\h+.*1\\h*\$" old regex
-    speciesindex = findindex(speciesregex, thermoblock)
-    speciesline = thermoblock[speciesindex]
-    return speciesline, speciesindex
-end
-
-function findtemperature(speciesline) ## finds the middle temperature in line 1 for a species in the thermodynamics block
-    tempmatches = eachmatch(r"\d+\.\d*", speciesline)
-    temperatures = collect(tempmatches)
-    #lowtemperature = parse(Float64, temperatures[1].match)
-    #hightemperature = parse(Float64, temperatures[2].match)
-    commontemperature = parse(Float64, temperatures[3].match)
-    return commontemperature
-end
-
-function sortcoeffs(speciesindex, thermoblock) ## sorts the thermodynamic coeffs for better data processing
-    joincoefflines = join(thermoblock[speciesindex+1:speciesindex+3])
-    splitcoeffs = split(joincoefflines, r"(?<!e)(?=-)|\s+|\d\s*\n"i, keepempty=false)
-    #show(splitcoeffs)
-    return splitcoeffs
-end
-
-function extractthermo(specieslist, thermoblock) ## extracts the thermodynamic coeffs, molecular weight and middle temperature from the given thermo block
-    totalspecies = length(specieslist)
-    totalcoefficients = 7
-    highcoeffmatrix = zeros(Float64, totalcoefficients, totalspecies)
-    lowcoeffmatrix = zeros(Float64, totalcoefficients, totalspecies)
-
-    moleweight = zeros(Float64, totalspecies)
-    midtemperatures = zeros(Float64, totalspecies)
-
-    for species in eachindex(specieslist)
-        speciesline, speciesindex = findlineone(species, specieslist, thermoblock)
-        #println(speciesline)
-        midtemperatures[species] = findtemperature(speciesline)
-        moleweight[species] = extractweight(speciesline)
-
-        splitcoeffs = sortcoeffs(speciesindex, thermoblock)
-        #println(splitcoeffs)
-
-        for coeff in 1:totalcoefficients
-            highcoeffmatrix[coeff, species] = parse(Float64, splitcoeffs[coeff])
-            lowcoeffmatrix[coeff, species] = parse(Float64, splitcoeffs[coeff+totalcoefficients])
-        end
-    end
-    return moleweight, midtemperatures, highcoeffmatrix, lowcoeffmatrix
-end
-
-function reversibility(keyword, reactionsblock, assignreactions)
-
-    _, auxindicies = findlines(keyword, reactionsblock)
-
-    totalreactions = zero(auxindicies)
-
-    for i in eachindex(auxindicies)
-        _, assignindex = indexreaction(auxindicies[i], reactionsblock, assignreactions)
-        totalreactions[i] = assignindex
-    end
-    return totalreactions
-end
-
-# function readmec(title; print=false)
-
-#     #title = Symbol(title) ##???
-#     #if isdefined(Apophis, title) == false
-#     strng = string(title)
-#     #expr = :(const $title = mechanism($strng))
-#     expr = :(mechanism = mechan($strng))
-#     eval(expr)
-#     #Base.eval(Main, expr)
-#     #end
-
-#     if print == true
-#         #exprs = title
-#         #exprs = :(Main.$title)
-#         #mechanism = eval(exprs)
-#         println(title, ":", "\t$(length(mechanism.elements)) elements", "\t$(length(mechanism.species)) species", "\t$(length(mechanism.reactions)) reactions")
-#         println("\t----------", "\t----------", "\t-------------")
-#         n = 3
-#         for i in 1:n
-#             println("\t$(mechanism.elements[i])\t", "\t$(mechanism.species[i])\t", "\t$(mechanism.reactions[i])")
-#             i == n && println("\t...\t", "\t...\t", "\t...")
-#         end
-#     end
-#     return nothing
-# end
-
-function readmechanism(title, T) ## main function, calls previous functions in order
-
-    mechanism_path = pkgdir(Apophis, "test/mechanisms/$(title)")
-    mech_file_path = mechanism_path * "/$(title)_mech.dat"
-    thermo_file_path = mechanism_path * "/$(title)_thermo.dat"
-    #trans_file_path = mechanism_path * "/$(title)_trans.dat"
-
-    mech_data = readfile(mech_file_path)
-
-    if isfile(thermo_file_path)
-        thermo_data = readfile(thermo_file_path)
-        thermoblock = findblock(:thermo, thermo_data)
-    else
-        thermoblock = findblock(:thermo, mech_data)
-    end
-
-    elements = extractblock(:elements, mech_data)
-    species = extractblock(:species, mech_data)
-
-    molecular_weight, common_temperature, upper_temperature_coefficients, lower_temperature_coefficients = extractthermo(species, thermoblock)
-    inverse_molecular_weight = inv.(molecular_weight)
-
-    reactionsblock = findblock(:reactions, mech_data)
-
-    elementary_reactions = extractreactions(:elementary, reactionsblock)
-    threebody_reactions = extractreactions(:threebody, reactionsblock)
-    falloff_reactions = extractreactions(:falloff, reactionsblock)
-
-    reactions = vcat(elementary_reactions, threebody_reactions, falloff_reactions)
-    isreversible = findall(x -> occursin(r"<=>|(?<!<)=(?!>)", x), reactions)
-
-    stoichiometric_reactions, stoichiometric_reactants, stoichiometric_products, stoichiometric_sum =
-        extractstoichiometry(reactions, species)
-
-    stoichiometric_transpose = sparse(stoichiometric_reactions')
-
-    reactants_indices = stoichiometric_indices(stoichiometric_reactants)
-    products_indices = stoichiometric_indices(stoichiometric_products)
-
-    _, forward_reaction_parameters = extractauxillary(:high, reactionsblock, reactions)
-    pressure_independant_parameters = forward_reaction_parameters[1:(length(reactions)-length(falloff_reactions)), :] ## optimize
-    high_pressure_parameters = forward_reaction_parameters[length(reactions)-length(falloff_reactions)+1:length(reactions), :] ## optimize
-    is_reverse_parameters, reverse_reaction_parameters = extractauxillary(:rev, reactionsblock, reactions)
-    _, low_pressure_parameters = extractauxillary(:low, reactionsblock, falloff_reactions)
-    is_troe_parameters, troe_parameters = extractauxillary(:troe, reactionsblock, falloff_reactions)
-
-    is_reversible_equilibrium = setdiff(isreversible, is_reverse_parameters)
-
-    alphareactions = vcat(threebody_reactions, falloff_reactions) ## potential reactions with enhancement factors
-    enhancement_factors = extractalpha(species, reactionsblock, alphareactions)
-
-    return Mechanism{T}(
-        elements,
-        species,
-        reactions,
-        elementary_reactions,
-        threebody_reactions,
-        falloff_reactions,
-        common_temperature,
-        molecular_weight,
-        inverse_molecular_weight,
-        is_reverse_parameters,
-        is_reversible_equilibrium,
-        is_troe_parameters,
-        lower_temperature_coefficients,
-        upper_temperature_coefficients,
-        pressure_independant_parameters,
-        high_pressure_parameters,
-        low_pressure_parameters,
-        troe_parameters,
-        reverse_reaction_parameters,
-        enhancement_factors,
-        stoichiometric_products,
-        stoichiometric_reactants,
-        stoichiometric_reactions,
-        stoichiometric_transpose,
-        stoichiometric_sum,
-        reactants_indices,
-        products_indices
-    )
-end
-
-function init(mech::Symbol, temperature::K, pressure::K=Pₐ; s...) where {K<:Number}
-
-    strng = string(mech)
-    gasexpr = :(gas = Gas{$K}(readmechanism($strng, $K)))
-    eval(gasexpr)
-
-    W⁻¹ = gas.mechanism.inverse_molecular_weight
-
-    ## integrate with concentrations? ##
-    T = gas.initial.temperature[1] = temperature
-    P = gas.initial.pressure = pressure
-
-    Y = gas.initial.mass_fractions
-    X, _, _ = gas.initial.molar_fractions
-    C, _, _ = gas.initial.molar_concentrations
-
-    if first(s)[1] == :rand
-        Y .= first(s)[2]
-    else
-        species = String.(first.(collect(s)))
-        fractions = last.(collect(s))
-        ∑fractions = sum(fractions)
-
-        indicies = indexin(species, gas.mechanism.species)
-        in(nothing, indicies) && error("one or more of species are not part of $(mech) mechanism")
-        ∑fractions ≈ one(K) || @warn "∑Y = $(∑fractions) ≠ 1!"
-        for i in eachindex(indicies)
-            j = indicies[i]
-            Y[j] = fractions[i]
-        end
-    end
-
-    W̅ = inv(Y ⋅ W⁻¹)
-    ρ = gas.current.density = gas.initial.density = P * W̅ / (R * T)
-
-    for i in eachindex(gas.mechanism.species)
-        YW⁻¹ = Y[i] * W⁻¹[i]
-        C[i] = YW⁻¹ * ρ
-        X[i] = YW⁻¹ * W̅
-    end
-
-    #gas.current = gas.initial
-
-    return nothing
-end
+temperature((; state)::Gas) = state.T
+pressure((; state)::Gas; in=nothing) = state.P * (isnothing(in) || ustrip(in, 1u"dyn/cm^2"))
+density((; state)::Gas; in=nothing) = state.ρ * (isnothing(in) || ustrip(in, 1u"g/cm^3"))
+mass_fractions((; state)::Gas) = state.Y
+molar_fractions((; state)::Gas) = state.X
+molar_concentrations((; state)::Gas) = state.C
+
+species((; mechanism)::Gas) = mechanism.species
+species(gas::Gas, i::Int) = species(gas)[i]
+species(gas::Gas, s::Union{String, Symbol}) = assign(species(gas), s)
+
+molecular_weights(gas::Gas) = map(s -> s.weight, species(gas))
+stoichiometry_matrix(gas::Gas) = [(s.k, r.i, ν) for s in species(gas) for (r, ν) in s.inreactions] |> v -> sparse((getfield.(v, i) for i in OneTo(3))...)
+
+heat_capacity_pressure(species::Species; in=nothing) = heat_capacity_pressure(species, Val(:val); in)
+heat_capacity_pressure(species::Species, ::Val{:val}; in=nothing) = species.thermo.cₚ.val[] * (isnothing(in) || ustrip(in, 1u"erg/(mol*K)"))
+heat_capacity_pressure(species::Species, ::Val{:dT}; in=nothing) = species.thermo.cₚ.dT[] * (isnothing(in) || ustrip(in, 1u"erg/(mol*K^2)"))
+heat_capacities_pressure(gas::Gas, v::Val = Val(:val); in=nothing) = map(s -> heat_capacity_pressure(s, v; in), species(gas))
+
+average_heat_capacity_pressure(gas::Gas{<:Number}, f::Symbol = :val; in=nothing) = sum(heat_capacity_pressure(s, f) * y * inv(s.weight) for (s, y) in zip(species(gas), mass_fractions(gas))) * (isnothing(in) || ustrip(in, 1u"erg/(g*K)"))
+
+heat_capacity_volume(species::Species, v::Val = Val(:val)) = heat_capacity_pressure(species, v) - R
+average_heat_capacity_volume(gas::Gas{<:Number}) = sum(heat_capacity_volume(s) * y * inv(s.weight) for (s, y) in zip(species(gas), mass_fractions(gas)))
+
+enthalpy(species::Species; in=nothing) = enthalpy(species, Val(:val); in)
+enthalpy(species::Species, ::Val{:val}; in=nothing) = species.thermo.h.val[] * (isnothing(in) || ustrip(in, 1u"erg/mol"))
+enthalpy(species::Species, ::Val{:dT}; in=nothing) = species.thermo.h.dT[] * (isnothing(in) || ustrip(in, 1u"erg/(mol*K)"))
+enthalpies(gas::Gas, v::Val = Val(:val); in=nothing) = map(s -> enthalpy(s, v; in), species(gas))
+
+internal_energy(gas::Gas, species::Species, v::Val = Val(:val)) = enthalpy(species, v) - R * temperature(gas)
+
+entropy(species::Species; in=nothing) = entropy(species, Val(:val); in)
+entropy(species::Species, ::Val{:val}; in=nothing) = species.thermo.s.val[] * (isnothing(in) || ustrip(in, 1u"erg/(mol*K)"))
+entropy(species::Species, ::Val{:dT}; in=nothing) = species.thermo.s.dT[] * (isnothing(in) || ustrip(in, 1u"erg/(mol*K^2)"))
+entropies(gas::Gas, v::Val = Val(:val); in=nothing) = map(s -> entropy(s, v; in), species(gas))
+
+production_rate(species::Species; in=nothing) = production_rate(species, Val(:val); in)
+production_rate(species::Species, ::Val{:val}; in=nothing) = species.rates.ω̇.val[] * (isnothing(in) || ustrip(in, 1u"mol/(cm^3*s)"))
+production_rate(species::Species, ::Val{:dT}; in=nothing) = species.rates.ω̇.dT[] * (isnothing(in) || ustrip(in, 1u"mol/(cm^3*K*s)"))
+production_rate(species::Species, ::Val{:dC}; in=nothing) = species.rates.ω̇.dC * (isnothing(in) || ustrip(in, 1u"s^-1"))
+production_rate(gas::Gas, s::Union{String, Symbol}, v::Val = Val(:val); in=nothing) = species(gas, s) |> s -> production_rate(s, v, in)
+production_rates(gas::Gas{N}, v::Val = Val(:val); in=nothing) where {N<:Number} = map(s -> production_rate(s, v; in), species(gas)) |> s -> s isa Vector{Vector{N}} ? mapreduce(permutedims, vcat, s) : s
+production_rates!(dest::AbstractArray, gas::Gas{N}, ::Val{S}) where {N<:Number, S} = for s in species(gas), (j, d) in enumerate(getfield(s.rates.ω̇, S)) dest[s.k, j] = d end
+
+reactions((; mechanism)::Gas) = mechanism.reactions
+reaction(gas::Gas, i::Int) = reactions(gas)[i]
+reaction(gas::Gas, r::Union{String, Symbol}) = assign(reactions(gas), r)
+
+order_unit(reaction::Reaction{N}, part::Vector{Pair{Species{N}, N}}) where {N<:Number} = sum(abs ∘ last, part) + (reaction isa ElementaryReaction ? zero(N) : one(N))
+
+forward_rate(reaction::Reaction, f::Symbol = :val) = forward_rate(reaction, Val(f))
+forward_rate(reaction::Reaction, ::Val{:val}) = reaction.rates.kf.val[]
+forward_rate(reaction::Reaction, ::Val{:dT}) = reaction.rates.kf.dT[]
+forward_rate(reaction::Reaction, ::Val{:dC}) = reaction.rates.kf.dC
+forward_rates(gas::Gas{N}, f::Symbol = :val) where {N<:Number} = map(r -> forward_rate(r, f), reactions(gas)) |> r -> r isa Vector{Vector{N}} ? mapreduce(permutedims, vcat, r) : r
+
+reverse_rate(reaction::Reaction, f::Symbol = :val) = reverse_rate(reaction, Val(f))
+reverse_rate(reaction::Reaction, ::Val{:val}) = reaction.rates.kr.val[]
+reverse_rate(reaction::Reaction, ::Val{:dT}) = reaction.rates.kr.dT[]
+reverse_rate(reaction::Reaction, ::Val{:dC}) = reaction.rates.kr.dC
+reverse_rates(gas::Gas{N}, f::Symbol = :val) where {N<:Number} = map(r -> reverse_rate(r, f), reactions(gas)) |> r -> r isa Vector{Vector{N}} ? mapreduce(permutedims, vcat, r) : r
+
+progress_rate(reaction::Reaction, f::Symbol = :val; in=nothing) = progress_rate(reaction, Val(f); in)
+progress_rate(reaction::Reaction, ::Val{:val}; in=nothing) = reaction.rates.q.val[] * (isnothing(in) || ustrip(in, 1u"mol/(cm^3*s)"))
+progress_rate(reaction::Reaction, ::Val{:dT}; in=nothing) = reaction.rates.q.dT[] * (isnothing(in) || ustrip(in, 1u"mol/(cm^3*K*s)"))
+progress_rate(reaction::Reaction, ::Val{:dC}; in=nothing) = reaction.rates.q.dC * (isnothing(in) || ustrip(in, 1u"s^-1"))
+progress_rates(gas::Gas{N}, f::Symbol = :val; in=nothing) where {N<:Number} = map(r -> progress_rate(r, f; in), reactions(gas)) |> r -> r isa Vector{Vector{N}} ? mapreduce(permutedims, vcat, r) : r

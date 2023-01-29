@@ -1,0 +1,156 @@
+ScanMan preprocessor program
+
+version                  4.2.1
+executed command         '/Users/sabry/Documents/ITV/C/Bin/bin/../../Bin/bin/ScanMan -i kinetics.dat -o kinetics.pre -3srE'
+git sha1                 a1c627b7730584655120bed5ffbe7cad7b8e6131
+operating system         Darwin, version 20.2.0
+target architechture     arm64
+c++ compiler             Clang, version 12.0.0.12000032
+c   compiler             Clang, version 12.0.0.12000032
+
+Assuming binary file preprocessed by 'CreateBinFile' will be read in
+
+# parse error:
+# !
+#
+# a '!' is a complete surprise for me in this context
+# i think you've forgotten to limit the label with a colon
+#
+#-----------------------------------------------------------------
+ vi +1 kinetics.dat
+#-----------------------------------------------------------------
+#
+
+
+
+# parse error:
+# !
+#
+# a '!' is a complete surprise for me in this context
+# i think you've forgotten to limit the label with a colon
+#
+#-----------------------------------------------------------------
+ vi +2 kinetics.dat
+#-----------------------------------------------------------------
+#
+
+
+
+# parse error:
+# !
+#
+# a '!' is a complete surprise for me in this context
+# i think you've forgotten to limit the label with a colon
+#
+#-----------------------------------------------------------------
+ vi +3 kinetics.dat
+#-----------------------------------------------------------------
+#
+
+
+
+# parse error:
+# !
+#
+# a '!' is a complete surprise for me in this context
+# i think you've forgotten to limit the label with a colon
+#
+#-----------------------------------------------------------------
+ vi +4 kinetics.dat
+#-----------------------------------------------------------------
+#
+
+
+
+# parse error:
+# !
+#
+# a '!' is a complete surprise for me in this context
+# i think you've forgotten to limit the label with a colon
+#
+#-----------------------------------------------------------------
+ vi +5 kinetics.dat
+#-----------------------------------------------------------------
+#
+
+
+
+# parse error:
+# E
+#
+# a 'E' is a complete surprise for me in this context
+# i think you've forgotten to limit the label with a colon
+#
+#-----------------------------------------------------------------
+ vi +6 kinetics.dat
+#-----------------------------------------------------------------
+#
+
+
+
+# parse error:
+# O
+#
+# a 'O' is a complete surprise for me in this context
+# i think you've forgotten to limit the label with a colon
+#
+#-----------------------------------------------------------------
+ vi +7 kinetics.dat
+#-----------------------------------------------------------------
+#
+
+
+
+# parse error:
+# E
+#
+# a 'E' is a complete surprise for me in this context
+# i think you've forgotten to limit the label with a colon
+#
+#-----------------------------------------------------------------
+ vi +8 kinetics.dat
+#-----------------------------------------------------------------
+#
+
+
+
+# parse error:
+# S
+#
+# a 'S' is a complete surprise for me in this context
+# i think you've forgotten to limit the label with a colon
+#
+#-----------------------------------------------------------------
+ vi +9 kinetics.dat
+#-----------------------------------------------------------------
+#
+
+
+
+# parse error:
+# H
+#
+# a 'H' is a complete surprise for me in this context
+# i think you've forgotten to limit the label with a colon
+#
+#-----------------------------------------------------------------
+ vi +10 kinetics.dat
+#-----------------------------------------------------------------
+#
+
+
+
+# parse error:
+# C
+#
+# a 'C' is a complete surprise for me in this context
+# i think you've forgotten to limit the label with a colon
+#
+#-----------------------------------------------------------------
+ vi +11 kinetics.dat
+#-----------------------------------------------------------------
+#
+
+
+# make errors fewer
+#
