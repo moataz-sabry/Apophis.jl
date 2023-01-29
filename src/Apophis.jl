@@ -4,6 +4,7 @@ using Base.Iterators: filter, flatten, partition, take
 using Base: OneTo, rest
 using Combinatorics
 using SparseArrays
+using SplitApplyCombine: combinedimsview, mapview
 using Unitful
 using Zygote
 # using ThreadsX
