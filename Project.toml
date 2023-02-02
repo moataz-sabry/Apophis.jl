@@ -1,7 +1,7 @@
 name = "Apophis"
 uuid = "cf72b054-1e85-4718-a3f4-02cfdc10a054"
 authors = ["moataz-sabry <moataz.sabry@outlook.de>"]
-version = "1.0.0"
+version = "1.1.0"
 
 [deps]
 Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
