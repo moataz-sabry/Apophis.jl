@@ -80,6 +80,7 @@ end
 Troe() = nothing
 Troe(itr) = Troe(itr...)
 
+Troe(a::N, T₃::N, T₁::N, ::Nothing) where {N<:Number} = Troe(a, T₃, T₁, zero(N))
 Troe(a::N, T₃::N, T₁::N) where {N<:Number} = Troe(a, T₃, T₁, zero(N))
 
 @inline ((; a, T₃, T₁, T₂)::Troe{N})(T::N) where {N<:Number} = (1.0 - a) * exp(-T / T₃) + a * exp(-T / T₁) + (iszero(T₂) ? zero(N) : exp(-T₂ / T))
@@ -87,7 +88,7 @@ Troe(a::N, T₃::N, T₁::N) where {N<:Number} = Troe(a, T₃, T₁, zero(N))
 
 (troe::Troe{N})(::Val{:dg}, T::N) where {N<:Number} = gradient(troe -> troe(T), troe) |> only
 
-function troe_function(Fc::N, Pᵣ::N) where N<:Number
+function troe_function(Fc::N, Pᵣ::N) where {N<:Number}
     log10Pᵣ = log10(Pᵣ)
     log10Fc = log10(Fc)
 
@@ -99,7 +100,7 @@ function troe_function(Fc::N, Pᵣ::N) where N<:Number
     return F
 end
 
-function troe_function(::Val{:dT}, Fc::N, Pᵣ::N) where N<:Number
+function troe_function(::Val{:dT}, Fc::N, Pᵣ::N) where {N<:Number}
     log10Pᵣ = log10(Pᵣ)
     dlog10PᵣdPᵣ = log(10.0)Pᵣ |> inv
     log10Fc = log10(Fc)
@@ -131,7 +132,7 @@ function troe_function(::Val{:dT}, Fc::N, Pᵣ::N) where N<:Number
     return F, dFdFc, dFdPᵣ
 end
 
-function troe_function(::Val{:dC}, Fc::N, Pᵣ::N) where N<:Number
+function troe_function(::Val{:dC}, Fc::N, Pᵣ::N) where {N<:Number}
     log10Pᵣ = log10(Pᵣ)
     dlog10PᵣdPᵣ = log(10.0)Pᵣ |> inv
     log10Fc = log10(Fc)
@@ -162,7 +163,7 @@ struct ElementaryReaction{N<:Number} <: AbstractReaction{N}
     reactants::Vector{Pair{Species{N}, N}}
     products::Vector{Pair{Species{N}, N}}
     reaction_order::N
-    forward_rate_parameters::Arrhenius{N}
+    forward_rate_parameters::Maybe{Arrhenius{N}}
     reverse_rate_parameters::Maybe{Arrhenius{N}}
     plog_parameters::Maybe{Plog{N}}
     rates::ReactionRates{N}
@@ -198,7 +199,7 @@ end
 
 const Reaction{N} = Union{ElementaryReaction{N}, ThreeBodyReaction{N}, FallOffReaction{N}} where {N<:Number}
 
-@inline total_molar_concentration(C::Vector{N}, α::Vector{Pair{Species{N},N}}) where N<:Number = @inbounds sum(C[k] * f for ((; k), f) in α)
+@inline total_molar_concentration(C::Vector{N}, α::Vector{Pair{Species{N},N}}) where {N<:Number} = @inbounds sum(C[k] * f for ((; k), f) in α)
 
 forward_rate((; rates, forward_rate_parameters, plog_parameters)::ElementaryReaction{N}, (; T, P)::State{N}) where {N<:Number} = setindex!(rates.kf.val, isnothing(plog_parameters) ? forward_rate_parameters(T) : plog_parameters(T, P), 1)
 forward_rate((; rates, forward_rate_parameters)::ThreeBodyReaction{N}, (; T)::State{N}) where {N<:Number} = setindex!(rates.kf.val, forward_rate_parameters(T), 1)
@@ -284,6 +285,35 @@ function forward_rate(v::Val{:dP}, (; rates, forward_rate_parameters, plog_param
     return nothing
 end
 
+_dkfdA((; forward_rate_parameters)::Union{ElementaryReaction{N}, ThreeBodyReaction{N}}, (; T)::State{N}) where {N<:Real} = forward_rate_parameters(Val(:dg), T) |> first
+
+function _dkfdA((; high_pressure_parameters, low_pressure_parameters, enhancement_factors, troe_parameters)::FallOffReaction{N}, (; T, C)::State{N}) where {N<:Real} ## Add dkfdAₒ later
+    k∞, kₒ = (high_pressure_parameters, low_pressure_parameters)(T)
+    M = total_molar_concentration(C, enhancement_factors)
+    Pᵣ = reduced_pressure(kₒ, M, k∞)
+    t = inv(one(N) + Pᵣ)
+    
+    dk∞dA∞ = high_pressure_parameters(Val(:dg), T) |> first
+    dPᵣdk∞ = reduced_pressure(Val(:dk∞), kₒ, M, k∞)
+
+    if isnothing(troe_parameters)
+        dkfdk∞ = Pᵣ * t
+        dkfdPᵣ = k∞ * t^2
+        dkfdA∞ = dkfdk∞ * dk∞dA∞ + dkfdPᵣ * dPᵣdk∞ * dk∞dA∞
+    else
+        Fc = troe_parameters(T)
+        F, dFdPᵣ = troe_function(Val(:dC), Fc, Pᵣ)
+
+        dkfdF = k∞ * Pᵣ * t 
+        dkfdk∞ = F * Pᵣ * t
+        dkfdPᵣ = F * k∞ * t^2
+
+        dFdA = dFdPᵣ * (dPᵣdk∞ * dk∞dA∞)
+        dkfdA∞ = dkfdF * dFdA + dkfdk∞ * dk∞dA∞ + dkfdPᵣ * dPᵣdk∞ * dk∞dA∞
+    end
+    return dkfdA∞
+end
+
 @inline change_enthalpy((; reactants, products)::Reaction{<:Number}, i::Int = 1) = 
     @inbounds sum(getfield(s.thermo.h, i)[] * ν for (s, ν) in flatten((reactants, products)))
 
@@ -325,7 +355,7 @@ end
 @inline function reverse_rate(reaction::Reaction{N}, (; T)::State{N}) where {N<:Number}
     (; rates, isreversible, reverse_rate_parameters) = reaction
     isreversible || return nothing
-    isnothing(reverse_rate_parameters) || (kr.val[] = reverse_rate_parameters(T);
+    isnothing(reverse_rate_parameters) || (rates.kr.val[] = reverse_rate_parameters(T);
         return nothing
     )
     Kc = equilibrium_constants(reaction, T)
@@ -357,7 +387,7 @@ reverse_rate(::Val{:dC}, reaction::ThreeBodyReaction{N}, state::State{N}) where 
 @inline function reverse_rate(::Val{:dP}, reaction::Reaction{N}, (; T)::State{N}) where {N<:Number}
     (; rates, isreversible, reverse_rate_parameters) = reaction
     isreversible || return nothing
-    isnothing(reverse_rate_parameters) || (kr.val[] = reverse_rate_parameters(T);
+    isnothing(reverse_rate_parameters) || (rates.kr.val[] = reverse_rate_parameters(T);
         return nothing
     )
     Kc = equilibrium_constants(reaction, T)
@@ -394,7 +424,7 @@ function progress_rate(reaction::Reaction{N}, (; C)::State{N}) where {N<:Number}
     ∏ᴵᴵ = reaction.isreversible ? step(reaction.products, C) : zero(N)
 
     M = reaction isa ThreeBodyReaction ? total_molar_concentration(C, reaction.enhancement_factors) : one(N)
-    q.val[] = M * (kf.val[] * ∏ᴵ - kr.val[] * ∏ᴵᴵ)
+    @inbounds q.val[] = M * (kf.val[] * ∏ᴵ - kr.val[] * ∏ᴵᴵ)
     return nothing
 end
 
@@ -404,17 +434,21 @@ function progress_rate(::Val{:dT}, reaction::Reaction{N}, (; C)::State{N}) where
     ∏ᴵᴵ = reaction.isreversible ? step(reaction.products, C) : zero(N)
     
     M = reaction isa ThreeBodyReaction ? total_molar_concentration(C, reaction.enhancement_factors) : one(N)
-    q.dT[] = M * (kf.dT[] * ∏ᴵ - kr.dT[] * ∏ᴵᴵ)
+    @inbounds q.val[] = M * (kf.val[] * ∏ᴵ - kr.val[] * ∏ᴵᴵ)
+    @inbounds q.dT[] = M * (kf.dT[] * ∏ᴵ - kr.dT[] * ∏ᴵᴵ)
     return nothing
 end
 
 function progress_rate(::Val{:dC}, reaction::ElementaryReaction{N}, (; C)::State{N}) where {N<:Number}
     (; kf, kr, q) = reaction.rates
+    ∏ᴵ = step(reaction.reactants, C)
+    ∏ᴵᴵ = reaction.isreversible ? step(reaction.products, C) : zero(N)
     for k in eachindex(q.dC)
         d∏ᴵdCₖ = step(reaction.reactants, C, k)
         d∏ᴵᴵdCₖ = step(reaction.products, C, k)
         @inbounds q.dC[k] = (kf.val[] * d∏ᴵdCₖ) - (kr.val[] * d∏ᴵᴵdCₖ)
     end
+    @inbounds q.val[] = kf.val[] * ∏ᴵ - kr.val[] * ∏ᴵᴵ
     return reaction
 end
 
@@ -432,6 +466,7 @@ function progress_rate(::Val{:dC}, reaction::ThreeBodyReaction{N}, (; C)::State{
     for ((; k), dMdCₖ) in reaction.enhancement_factors
         @inbounds q.dC[k] += dMdCₖ * (kf.val[] * ∏ᴵ - kr.val[] * ∏ᴵᴵ)
     end
+    @inbounds q.val[] = M * (kf.val[] * ∏ᴵ - kr.val[] * ∏ᴵᴵ)
     return reaction
 end
 
@@ -445,6 +480,7 @@ function progress_rate(::Val{:dC}, reaction::FallOffReaction{N}, (; C)::State{N}
         d∏ᴵᴵdCₖ = step(reaction.products, C, k) ## get it out of the loop somehow in case of not reversible
         @inbounds q.dC[k] = (kf.val[] * d∏ᴵdCₖ - kr.val[] * d∏ᴵᴵdCₖ) + (kf.dC[k] * ∏ᴵ - kr.dC[k] * ∏ᴵᴵ)
     end
+    @inbounds q.val[] = kf.val[] * ∏ᴵ - kr.val[] * ∏ᴵᴵ
     return reaction
 end
 
@@ -454,7 +490,7 @@ function progress_rate(::Val{:dP}, reaction::Reaction{N}, (; C)::State{N}) where
     ∏ᴵᴵ = reaction.isreversible ? step(reaction.products, C) : zero(N)
     
     M = reaction isa ThreeBodyReaction ? total_molar_concentration(C, reaction.enhancement_factors) : one(N)
-    q.dP[] = M * (kf.dP[] * ∏ᴵ - kr.dP[] * ∏ᴵᴵ)
+    @inbounds q.dP[] = M * (kf.dP[] * ∏ᴵ - kr.dP[] * ∏ᴵᴵ)
     return nothing
 end
 

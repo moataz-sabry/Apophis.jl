@@ -3,7 +3,7 @@ description: |-
   "A Comprehensive Modeling Study of Hydrogen Oxidation",
   International Journal of Chemical Kinetics, 36:603-622, 2004: UCRL-JC-152569.
   UCRL-WEB-208393
-  !Review and release date: December 3, 2004.
+  Review and release date: December 3, 2004.
   19/11/04 version 1b: WJP: eliminated efficiences for co, co and hydrocarbon
   species.   These caused errors for the Chemkin interpreter
   16/04/04 version 1a
@@ -18,7 +18,7 @@ description: |-
 generator: ck2yaml
 input-files: [kinetics.dat, thermo.dat]
 cantera-version: 2.6.0
-date: Wed, 11 Jan 2023 18:20:59 +0100
+date: Sat, 04 Feb 2023 17:06:56 +0100
 
 units: {length: cm, time: s, quantity: mol, activation-energy: cal/mol}
 
@@ -137,87 +137,117 @@ species:
     note: '120186'
 
 reactions:
-- equation: H + O2 <=> O + OH  # Reaction 1
+- equation: H + O2 => O + OH  # Reaction 1
   rate-constant: {A: 1.915e+14, b: 0.0, Ea: 1.644e+04}
-- equation: O + H2 <=> H + OH  # Reaction 2
+- equation: O + OH => H + O2  # Reaction 2
+  rate-constant: {A: 5.481e+11, b: 0.39, Ea: -293.0}
+- equation: O + H2 => H + OH  # Reaction 3
   rate-constant: {A: 5.08e+04, b: 2.67, Ea: 6292.0}
-  note: REV /  5.481E+11   0.39 -2.930E+02 /
-- equation: OH + H2 <=> H + H2O  # Reaction 3
+- equation: H + OH => O + H2  # Reaction 4
+  rate-constant: {A: 2.667e+04, b: 2.65, Ea: 4880.0}
+- equation: OH + H2 => H + H2O  # Reaction 5
   rate-constant: {A: 2.16e+08, b: 1.51, Ea: 3430.0}
-  note: REV /  2.667E+04   2.65  4.880E+03 /
-- equation: O + H2O <=> OH + OH  # Reaction 4
+- equation: H + H2O => OH + H2  # Reaction 6
+  rate-constant: {A: 2.298e+09, b: 1.4, Ea: 1.832e+04}
+- equation: O + H2O => OH + OH  # Reaction 7
   rate-constant: {A: 2.97e+06, b: 2.02, Ea: 1.34e+04}
-  note: REV /  2.298E+09   1.40  1.832E+04 /
-- equation: H2 + M <=> H + H + M  # Reaction 5
+- equation: OH + OH => O + H2O  # Reaction 8
+  rate-constant: {A: 1.465e+05, b: 2.11, Ea: -2904.0}
+- equation: H2 + M => H + H + M  # Reaction 9
   type: three-body
   rate-constant: {A: 4.577e+19, b: -1.4, Ea: 1.044e+05}
   efficiencies: {H2: 2.5, H2O: 12.0}
-  note: REV /  1.465E+05   2.11 -2.904E+03 /
-- equation: O2 + M <=> O + O + M  # Reaction 6
+- equation: H + H + M => H2 + M  # Reaction 10
+  type: three-body
+  rate-constant: {A: 1.146e+20, b: -1.68, Ea: 820.0}
+  efficiencies: {H2: 2.5, H2O: 12.0}
+- equation: O2 + M => O + O + M  # Reaction 11
   type: three-body
   rate-constant: {A: 4.515e+17, b: -0.64, Ea: 1.189e+05}
   efficiencies: {H2: 2.5, H2O: 12.0, AR: 0.83}
-  note: REV /  1.146E+20  -1.68  8.200E+02 /
-- equation: OH + M <=> O + H + M  # Reaction 7
+- equation: O + O + M => O2 + M  # Reaction 12
+  type: three-body
+  rate-constant: {A: 6.165e+15, b: -0.5, Ea: 0.0}
+  efficiencies: {H2: 2.5, H2O: 12.0, AR: 0.83}
+- equation: OH + M => O + H + M  # Reaction 13
   type: three-body
   rate-constant: {A: 9.88e+17, b: -0.74, Ea: 1.021e+05}
   efficiencies: {H2: 2.5, H2O: 12.0, AR: 0.75}
-  note: REV /  6.165E+15  -0.50  0.000E+00 /
-- equation: H2O + M <=> H + OH + M  # Reaction 8
+- equation: O + H + M => OH + M  # Reaction 14
+  type: three-body
+  rate-constant: {A: 4.714e+18, b: -1.0, Ea: 0.0}
+  efficiencies: {H2: 2.5, H2O: 12.0, AR: 0.75}
+- equation: H2O + M => H + OH + M  # Reaction 15
   type: three-body
   rate-constant: {A: 1.912e+23, b: -1.83, Ea: 1.185e+05}
   efficiencies: {H2: 0.73, H2O: 12.0, AR: 0.38}
-  note: REV /  4.714E+18  -1.00  0.000E+00 /
-- equation: H + O2 (+M) <=> HO2 (+M)  # Reaction 9
+- equation: H + OH + M => H2O + M  # Reaction 16
+  type: three-body
+  rate-constant: {A: 4.5e+22, b: -2.0, Ea: 0.0}
+  efficiencies: {H2: 0.73, H2O: 12.0, AR: 0.38}
+- equation: H + O2 (+M) <=> HO2 (+M)  # Reaction 17
   type: falloff
   low-P-rate-constant: {A: 3.482e+16, b: -0.411, Ea: -1115.0}
   high-P-rate-constant: {A: 1.475e+12, b: 0.6, Ea: 0.0}
   Troe: {A: 0.5, T3: 1.0e-30, T1: 1.0e+30, T2: 1.0e+100}
   efficiencies: {H2: 1.3, H2O: 14.0, AR: 0.67}
-  note: REV /  4.500E+22  -2.00  0.000E+00 /
-- equation: HO2 + H <=> H2 + O2  # Reaction 10
+- equation: HO2 + H => H2 + O2  # Reaction 18
   rate-constant: {A: 1.66e+13, b: 0.0, Ea: 823.0}
   note: REV / 3.090E+12 0.53 4.887E+04 /
-- equation: HO2 + H <=> OH + OH  # Reaction 11
+- equation: H2 + O2 => HO2 + H  # Reaction 19
+  rate-constant: {A: 3.164e+12, b: 0.35, Ea: 5.551e+04}
+- equation: HO2 + H => OH + OH  # Reaction 20
   rate-constant: {A: 7.079e+13, b: 0.0, Ea: 295.0}
-  note: REV /  3.164E+12   0.35  5.551E+04 /
-- equation: HO2 + O <=> OH + O2  # Reaction 12
+- equation: OH + OH => HO2 + H  # Reaction 21
+  rate-constant: {A: 2.027e+10, b: 0.72, Ea: 3.684e+04}
+- equation: HO2 + O => OH + O2  # Reaction 22
   rate-constant: {A: 3.25e+13, b: 0.0, Ea: 0.0}
-  note: REV /  2.027E+10   0.72  3.684E+04 /
-- equation: HO2 + OH <=> H2O + O2  # Reaction 13
+- equation: OH + O2 => HO2 + O  # Reaction 23
+  rate-constant: {A: 3.252e+12, b: 0.33, Ea: 5.328e+04}
+- equation: HO2 + OH => H2O + O2  # Reaction 24
   rate-constant: {A: 2.89e+13, b: 0.0, Ea: -497.0}
-  note: REV /  3.252E+12   0.33  5.328E+04 /
-- equation: H2O2 + O2 <=> HO2 + HO2  # Reaction 14
+- equation: H2O + O2 => HO2 + OH  # Reaction 25
+  rate-constant: {A: 5.861e+13, b: 0.24, Ea: 6.908e+04}
+- equation: H2O2 + O2 => HO2 + HO2  # Reaction 26
   duplicate: true
   rate-constant: {A: 4.634e+16, b: -0.35, Ea: 5.067e+04}
-  note: REV /  5.861E+13   0.24  6.908E+04 /
-- equation: H2O2 + O2 <=> HO2 + HO2  # Reaction 15
+- equation: HO2 + HO2 => H2O2 + O2  # Reaction 27
+  duplicate: true
+  rate-constant: {A: 4.2e+14, b: 0.0, Ea: 1.198e+04}
+- equation: H2O2 + O2 => HO2 + HO2  # Reaction 28
   duplicate: true
   rate-constant: {A: 1.434e+13, b: -0.35, Ea: 3.706e+04}
-  note: REV /  4.200E+14   0.00  1.198E+04 /
-- equation: H2O2 (+M) <=> OH + OH (+M)  # Reaction 16
+- equation: HO2 + HO2 => H2O2 + O2  # Reaction 29
+  duplicate: true
+  rate-constant: {A: 1.3e+11, b: 0.0, Ea: -1629.0}
+- equation: H2O2 (+M) <=> OH + OH (+M)  # Reaction 30
   type: falloff
   low-P-rate-constant: {A: 1.202e+17, b: 0.0, Ea: 4.55e+04}
   high-P-rate-constant: {A: 2.951e+14, b: 0.0, Ea: 4.843e+04}
   Troe: {A: 0.5, T3: 1.0e-30, T1: 1.0e+30, T2: 1.0e+100}
   efficiencies: {H2: 2.5, H2O: 12.0, AR: 0.64}
-  note: REV /  1.300E+11   0.00 -1.629E+03 /
-- equation: H2O2 + H <=> H2O + OH  # Reaction 17
+- equation: H2O2 + H => H2O + OH  # Reaction 31
   rate-constant: {A: 2.41e+13, b: 0.0, Ea: 3970.0}
-  note: '!REV / 3.656E+08   1.14 -2.584E+03 /'
-- equation: H2O2 + H <=> H2 + HO2  # Reaction 18
+  note: REV / 3.656E+08   1.14 -2.584E+03 /
+- equation: H2O + OH => H2O2 + H  # Reaction 32
+  rate-constant: {A: 1.269e+08, b: 1.31, Ea: 7.141e+04}
+- equation: H2O2 + H => H2 + HO2  # Reaction 33
   rate-constant: {A: 6.025e+13, b: 0.0, Ea: 7950.0}
-  note: REV /  1.269E+08   1.31  7.141E+04 /
-- equation: H2O2 + O <=> OH + HO2  # Reaction 19
+- equation: H2 + HO2 => H2O2 + H  # Reaction 34
+  rate-constant: {A: 1.041e+11, b: 0.7, Ea: 2.395e+04}
+- equation: H2O2 + O => OH + HO2  # Reaction 35
   rate-constant: {A: 9.55e+06, b: 2.0, Ea: 3970.0}
-  note: REV /  1.041E+11   0.70  2.395E+04 /
-- equation: H2O2 + OH <=> H2O + HO2  # Reaction 20
+- equation: OH + HO2 => H2O2 + O  # Reaction 36
+  rate-constant: {A: 8660.0, b: 2.68, Ea: 1.856e+04}
+- equation: H2O2 + OH => H2O + HO2  # Reaction 37
   duplicate: true
   rate-constant: {A: 1.0e+12, b: 0.0, Ea: 0.0}
-  note: REV /  8.660E+03   2.68  1.856E+04 /
-- equation: H2O2 + OH <=> H2O + HO2  # Reaction 21
+- equation: H2O + HO2 => H2O2 + OH  # Reaction 38
+  duplicate: true
+  rate-constant: {A: 1.838e+10, b: 0.59, Ea: 3.089e+04}
+- equation: H2O2 + OH => H2O + HO2  # Reaction 39
   duplicate: true
   rate-constant: {A: 5.8e+14, b: 0.0, Ea: 9557.0}
-  note: |-
-    REV /  1.838E+10   0.59  3.089E+04 /
-    REV /  1.066E+13   0.59  4.045E+04 /
+- equation: H2O + HO2 => H2O2 + OH  # Reaction 40
+  duplicate: true
+  rate-constant: {A: 1.066e+13, b: 0.59, Ea: 4.045e+04}

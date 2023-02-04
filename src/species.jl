@@ -27,6 +27,8 @@ function ((; Tₘ, a, A)::NasaPolynomial{N})(T::N) where {N<:Number}
     return cₚ, h, s
 end
 
+NasaPolynomial(Tmin, Tmax, Tₘ, A) = NasaPolynomial(Tmin, Tmax, Tₘ, A, A)
+
 function ((; Tₘ, a, A)::NasaPolynomial{N})(::Val{:dT}, T::N) where {N<:Number}
     T², T³, T⁴ = (T^n for n in 2:4)
     c₁, c₂, c₃, c₄, c₅, c₆, c₇ = T ≥ Tₘ ? A : a

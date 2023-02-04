@@ -1,11 +1,13 @@
 module Apophis
 
-using Base.Iterators: filter, flatten, partition, take
-using Base: OneTo, rest
+using Base.Iterators: filter, flatten, reverse, take, partition
+using Base: Fix1, Fix2, OneTo, rest
 using Combinatorics
+using LinearAlgebra
 using SparseArrays
 using SplitApplyCombine: combinedimsview, mapview
 using Unitful
+using YAML: load_file
 using Zygote
 # using ThreadsX
 

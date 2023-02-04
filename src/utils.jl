@@ -65,11 +65,11 @@ stoichiometry_matrix(gas::Gas) = [(s.k, r.i, ν) for s in species(gas) for (r, �
 heat_capacity_pressure(species::Species{<:Number}, ::Val{:val} = Val(:val); in=nothing) = species.thermo.cₚ.val[] * (isnothing(in) || ustrip(in, 1u"erg/(mol*K)"))
 heat_capacity_pressure(species::Species{<:Number}, ::Val{:dT}; in=nothing) = species.thermo.cₚ.dT[] * (isnothing(in) || ustrip(in, 1u"erg/(mol*K^2)"))
 heat_capacities_pressure(gas::Gas{<:Number}, v::Val = Val(:val); in=nothing) = mapview(s -> heat_capacity_pressure(s, v; in), species(gas))
-average_heat_capacity_pressure(gas::Gas{<:Number}, v::Val = Val(:val); in=nothing) = sum(cₚ * y / w for (cₚ, y, w) in zip(heat_capacities_pressure(gas, v; in = in * u"g/mol"), mass_fractions(gas), molecular_weights(gas)))
+average_heat_capacity_pressure(gas::Gas{<:Number}, v::Val = Val(:val); in=nothing) = sum(cₚ * y / w for (cₚ, y, w) in zip(heat_capacities_pressure(gas, v; in = isnothing(in) ? nothing : in * u"g/mol"), mass_fractions(gas), molecular_weights(gas)))
 
 heat_capacities_volume(gas::Gas{<:Number}, ::Val{:val} = Val(:val); in=nothing) = mapview(cₚ -> cₚ - R, heat_capacities_pressure(gas; in))
 heat_capacities_volume(gas::Gas{<:Number}, v::Val{:dT}; in=nothing) = heat_capacities_pressure(gas, v; in)
-average_heat_capacity_volume(gas::Gas{<:Number}, v::Val = Val(:val); in=nothing) = sum(cᵥ * y / w for (cᵥ, y, w) in zip(heat_capacities_volume(gas, v; in = in * u"g/mol"), mass_fractions(gas), molecular_weights(gas)))
+average_heat_capacity_volume(gas::Gas{<:Number}, v::Val = Val(:val); in=nothing) = sum(cᵥ * y / w for (cᵥ, y, w) in zip(heat_capacities_volume(gas, v; in = isnothing(in) ? nothing : in * u"g/mol"), mass_fractions(gas), molecular_weights(gas)))
 
 enthalpy(species::Species{<:Number}; in=nothing) = enthalpy(species, Val(:val); in)
 enthalpy(species::Species{<:Number}, ::Val{:val}; in=nothing) = species.thermo.h.val[] * (isnothing(in)  || ustrip(in, 1u"erg/mol"))

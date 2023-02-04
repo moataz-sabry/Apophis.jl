@@ -14,4 +14,4 @@ update!(gas::Gas{<:Number}, d::Symbol) = ((update_thermodynamics, update_reactio
 update!(gas::Gas{<:Number}, ds::Vararg{Symbol}) = foreach(d -> update!(gas, d), ds)
 
 _kinetics_sensitivity((; mechanism, state)::Gas{<:Number}, d::Int = 1) = @inbounds map(reaction -> _kinetics_sensitivity(reaction, state)[d], mechanism.reactions)
-kinetics_sensitivity(gas::Gas{N}, d::Int = 1) where {N<:Number} = @inbounds _kinetics_sensitivity(gas, d) |> dqdk -> map(s -> sum(dqdk[i] * ν for ((; i), ν) in s.inreactions; init=zero(N)), species(gas)) |> Diagonal
+kinetics_sensitivity(gas::Gas{N}, d::Int = 1) where {N<:Number} = stoichiometry_matrix(gas) * Diagonal(_kinetics_sensitivity(gas, d))

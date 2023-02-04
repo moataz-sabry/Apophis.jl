@@ -1,5 +1,5 @@
 # Apophis
-A package for the sensitivity analysis of gas-phase chemical and kinetics
+A package for sensitivity analysis of gas chemical and kinetics
 
 ## Installation
 ```julia
@@ -44,6 +44,12 @@ julia> production_rates(gas) # ω̇ [mol/(cm³⋅s)]
   0.0
   
 ```
+## To-Do
+- Change default units to SI
+- Add routines for other reaction auxillary parameters
+- Correctly implement pressure-dependant reactions
+- Implement diffusion routines
+
 ## References
 - [Chemkin User Manual](https://www3.nd.edu/~powers/ame.60636/chemkin2000.pdf)
 - [Chemkin Transport Manual](https://www3.nd.edu/~powers/ame.60636/transport.pdf)
