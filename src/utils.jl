@@ -60,7 +60,7 @@ species(gas::Gas, i::Int) = species(gas)[i]
 species(gas::Gas, s::Union{String, Symbol}) = assign(species(gas), s)
 
 molecular_weights(gas::Gas{<:Number}, f::Function=identity) = mapview(s -> f(s.weight), species(gas))
-stoichiometry_matrix(gas::Gas) = [(s.k, r.i, ν) for s in species(gas) for (r, ν) in s.inreactions] |> v -> sparse((getfield.(v, i) for i in OneTo(3))...)
+stoichiometry_matrix((; mechanism)::Gas) = mechanism.stoichiometry_matrix
 
 heat_capacity_pressure(species::Species{<:Number}, ::Val{:val} = Val(:val); in=nothing) = species.thermo.cₚ.val[] * (isnothing(in) || ustrip(in, 1u"erg/(mol*K)"))
 heat_capacity_pressure(species::Species{<:Number}, ::Val{:dT}; in=nothing) = species.thermo.cₚ.dT[] * (isnothing(in) || ustrip(in, 1u"erg/(mol*K^2)"))
@@ -95,19 +95,19 @@ reactions((; mechanism)::Gas) = mechanism.reactions
 reaction(gas::Gas, i::Int) = reactions(gas)[i]
 reaction(gas::Gas, r::Union{String, Symbol}) = assign(reactions(gas), r)
 
-order_unit(reaction::Reaction{N}, part::Vector{Pair{Species{N}, N}}) where {N<:Number} = sum(abs ∘ last, part) + (reaction isa ElementaryReaction ? zero(N) : one(N))
+order_unit(reaction::AbstractReaction{N}, part::Vector{Pair{Species{N}, N}}) where {N<:Number} = sum(abs ∘ last, part) + (reaction isa ElementaryReaction ? zero(N) : one(N))
 
-forward_rate(reaction::Reaction{<:Number}, ::Val{:val}=Val(:val)) = reaction.rates.kf.val[]
-forward_rate(reaction::Reaction{<:Number}, ::Val{:dT}) = reaction.rates.kf.dT[]
-forward_rate(reaction::Reaction{<:Number}, ::Val{:dC}) = reaction.rates.kf.dC
+forward_rate(reaction::AbstractReaction{<:Number}, ::Val{:val}=Val(:val)) = reaction.rates.kf.val[]
+forward_rate(reaction::AbstractReaction{<:Number}, ::Val{:dT}) = reaction.rates.kf.dT[]
+forward_rate(reaction::AbstractReaction{<:Number}, ::Val{:dC}) = reaction.rates.kf.dC
 forward_rates(gas::Gas{<:Number}, v::Val = Val(:val)) = mapview(r -> forward_rate(r, v), reactions(gas))
 
-reverse_rate(reaction::Reaction{<:Number}, ::Val{:val}=Val(:val)) = reaction.rates.kr.val[]
-reverse_rate(reaction::Reaction{<:Number}, ::Val{:dT}) = reaction.rates.kr.dT[]
-reverse_rate(reaction::Reaction{<:Number}, ::Val{:dC}) = reaction.rates.kr.dC
+reverse_rate(reaction::AbstractReaction{<:Number}, ::Val{:val}=Val(:val)) = reaction.rates.kr.val[]
+reverse_rate(reaction::AbstractReaction{<:Number}, ::Val{:dT}) = reaction.rates.kr.dT[]
+reverse_rate(reaction::AbstractReaction{<:Number}, ::Val{:dC}) = reaction.rates.kr.dC
 reverse_rates(gas::Gas{<:Number}, v::Val = Val(:val)) = mapview(r -> forward_rate(r, v), reactions(gas))
 
-progress_rate(reaction::Reaction{<:Number}, ::Val{:val}=Val(:val); in=nothing) = reaction.rates.q.val[] * (isnothing(in) || ustrip(in, 1u"mol/(cm^3*s)"))
-progress_rate(reaction::Reaction{<:Number}, ::Val{:dT}; in=nothing) = reaction.rates.q.dT[] * (isnothing(in) || ustrip(in, 1u"mol/(cm^3*K*s)"))
-progress_rate(reaction::Reaction{<:Number}, ::Val{:dC}; in=nothing) = reaction.rates.q.dC
+progress_rate(reaction::AbstractReaction{<:Number}, ::Val{:val}=Val(:val); in=nothing) = reaction.rates.q.val[] * (isnothing(in) || ustrip(in, 1u"mol/(cm^3*s)"))
+progress_rate(reaction::AbstractReaction{<:Number}, ::Val{:dT}; in=nothing) = reaction.rates.q.dT[] * (isnothing(in) || ustrip(in, 1u"mol/(cm^3*K*s)"))
+progress_rate(reaction::AbstractReaction{<:Number}, ::Val{:dC}; in=nothing) = reaction.rates.q.dC
 progress_rates(gas::Gas{<:Number}, v::Val = Val(:val)) = mapview(r -> forward_rate(r, v), reactions(gas))

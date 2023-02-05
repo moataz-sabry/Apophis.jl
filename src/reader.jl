@@ -96,7 +96,7 @@ end
 function _find_species(k::Int, species::Symbol, thermo::T, transport::Maybe{T}, N::Type{<:Number}) where {T<:String}
     transport_parameters = isnothing(transport) ? nothing : find_transport_parameters(species, transport, N)
     thermodynamics_parameters = find_thermodynamic_parameters(species, thermo, N)
-    return Species(k, species, Pair{Reaction{N}, N}[], thermodynamics_parameters..., transport_parameters, (; zip(Diffusions, (zeros(N, 9), zero(N)))...),
+    return Species(k, species, Pair{Reaction{N, Species{N}}, N}[], thermodynamics_parameters..., transport_parameters, (; zip(Diffusions, (zeros(N, 9), zero(N)))...),
         (; zip((:cₚ, :h, :s), Tuple((; zip((:val, :dT), (zeros(N, 1) for _ in OneTo(2)))...) for _ in OneTo(3)))...), 
         (; zip((:ω̇,), tuple((; zip((:val, :dT, :dC), (zeros(N, 1), zeros(N, 1), zeros(N, 0)))...)))...))
 end
@@ -107,7 +107,7 @@ function _find_species(k::Int, species::Dict, N::Type{<:Number})
 
     weight = find_weight(composition)
     thermodynamic_parameters = find_thermodynamic_parameters(species["thermo"], N)
-    return Species(k, name, Pair{Reaction{N}, N}[], composition, weight, thermodynamic_parameters, nothing, (; zip(Diffusions, (zeros(N, 9), zero(N)))...),
+    return Species(k, name, Pair{Reaction{N, Species{N}}, N}[], composition, weight, thermodynamic_parameters, nothing, (; zip(Diffusions, (zeros(N, 9), zero(N)))...),
         (; zip((:cₚ, :h, :s), Tuple((; zip((:val, :dT), (zeros(N, 1) for _ in OneTo(2)))...) for _ in OneTo(3)))...), 
         (; zip((:ω̇,), tuple((; zip((:val, :dT, :dC), (zeros(N, 1), zeros(N, 1), zeros(N, 0)))...)))...))
 end
@@ -283,7 +283,7 @@ function _find_reaction(i::Int, data::RegexMatch, species::Vector{Species{N}}) w
 
     kinetics = find_kinetics(Type, reaction_data, species, components)
     reaction = Type(i, equation, isreversible, components..., order, kinetics..., duals)
-    foreach(i -> push!(i.first.inreactions, Pair{Reaction{N}, N}(reaction, i.second)), flatten(components))
+    foreach(i -> push!(i.first.inreactions, Pair{Reaction{N, Species{N}}, N}(reaction, i.second)), flatten(components))
     return reaction
 end
 
@@ -302,15 +302,22 @@ function _find_reaction(i::Int, reaction::Dict, species::Vector{Species{N}}) whe
 
     kinetics = find_kinetics(Type, reaction, species, components)
     reaction = Type(i, equation, isreversible, components..., order, kinetics..., duals)
-    foreach(i -> push!(i.first.inreactions, Pair{Reaction{N}, N}(reaction, i.second)), flatten(components))
+    foreach(i -> push!(i.first.inreactions, Pair{Reaction{N, Species{N}}, N}(reaction, i.second)), flatten(components))
     return reaction
 end
 
 #=
 Finds the reactions of the given kinetics `data`. Returns a vector of the reactions.
 =#
-find_reaction(data::String, species::Vector{Species{N}}) where {N<:Number} = Reaction{N}[_find_reaction(i, r, species) for (i, r) in enumerate(eachmatch(:reactions, data))]
-find_reaction(reactions::Vector{<:Dict}, species::Vector{Species{N}}) where {N<:Number} = Reaction{N}[_find_reaction(i, r, species) for (i, r) in enumerate(reactions)]
+find_reaction(data::String, species::Vector{Species{N}}) where {N<:Number} = Reaction{N, Species{N}}[_find_reaction(i, r, species) for (i, r) in enumerate(eachmatch(:reactions, data))]
+find_reaction(reactions::Vector{<:Dict}, species::Vector{Species{N}}) where {N<:Number} = Reaction{N, Species{N}}[_find_reaction(i, r, species) for (i, r) in enumerate(reactions)]
+
+function get_stoichiometry_matrix(species::Vector{<:Species})
+    K = [s.k for s in species for _ in s.inreactions]
+    I = [r.i for s in species for (r, _) in s.inreactions]
+    V = [ν for s in species for (_, ν) in s.inreactions]
+    return sparse(K, I, V)
+end
 
 function _read_mechanism(kinetics::T, thermo::T, transport::T, N::Type{<:Number}) where {T<:String}
     kinetics_data = read_data(kinetics)
@@ -321,7 +328,8 @@ function _read_mechanism(kinetics::T, thermo::T, transport::T, N::Type{<:Number}
     K = length(species)
     foreach(s -> append!(s.rates.ω̇.dC, zeros(N, K)), species)
     reactions = find_reaction(kinetics_data, species)
-    return (; species, reactions)
+    stoichiometry_matrix = get_stoichiometry_matrix(species)
+    return (; species, reactions, stoichiometry_matrix)
 end
 
 function _read_mechanism(mechanism::Dict, N::Type{<:Number})
@@ -329,7 +337,8 @@ function _read_mechanism(mechanism::Dict, N::Type{<:Number})
     K = length(species)
     foreach(s -> append!(s.rates.ω̇.dC, zeros(N, K)), species)
     reactions = find_reaction(mechanism["reactions"], species)
-    return (; species, reactions)
+    stoichiometry_matrix = get_stoichiometry_matrix(species)
+    return (; species, reactions, stoichiometry_matrix)
 end
 
 function read_mechanism(name::Union{Nothing,Symbol,String} = nothing; kinetics_path = "", thermo_path = "", transport_path = "", as::Type{<:Number} = Float64)

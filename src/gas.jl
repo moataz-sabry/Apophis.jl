@@ -1,3 +1,5 @@
+const Mechanism{N, S, R} = NamedTuple{(:species, :reactions, :stoichiometry_matrix), Tuple{Vector{S}, Vector{R}, SparseMatrixCSC{N, Int}}} where {N<:Number, S<:AbstractSpecies{N}, R<:AbstractReaction{N}}
+
 mutable struct State{N<:Number}
     T::N
     P::N
@@ -7,7 +9,7 @@ mutable struct State{N<:Number}
     C::Vector{N}
 end
 
-State(mechanism::NamedTuple{(:species, :reactions), Tuple{Vector{Species{N}}, Vector{R}}}) where {N<:Number, R} = State(N(Tᵣ), N(Pa), zero(N), (zeros(N, length(mechanism.species)) for _ in OneTo(3))...)
+State(mechanism::Mechanism{N}) where {N<:Number} = State(N(Tᵣ), N(Pa), zero(N), (zeros(N, length(mechanism.species)) for _ in OneTo(3))...)
 
 XW2W̅(X::Vector{N}, W::AbstractVector{N}) where {N<:Number} = sum(x * w for (x, w) in zip(X, W))
 YW2W̅(Y::Vector{N}, W::AbstractVector{N}) where {N<:Number} = sum(y / w for (y, w) in zip(Y, W)) |> inv
@@ -38,8 +40,8 @@ CT2P(C::Vector{N}, T::N) where {N<:Number} = sum(C) * R * T
 CW2ρ(C::Vector{N}, W::AbstractVector{N}) where {N<:Number} = sum(c * w for (c, w) in zip(C, W))
 PW̅T2ρ(P::N, W̅::N, T::N) where {N<:Number} = P * W̅ / (R * T)
 
-struct Gas{N<:Number, R<:AbstractReaction{N}}
-    mechanism::NamedTuple{(:species, :reactions), Tuple{Vector{Species{N}}, Vector{R}}}
+struct Gas{N<:Number, S<:AbstractSpecies{N}, R<:AbstractReaction{N}}
+    mechanism::Mechanism{N, S, R}
     state::State{N}
 end
 
@@ -59,7 +61,7 @@ function Gas(name::Union{Nothing, Symbol,String} = nothing;
     return gas
 end
 
-Gas(mechanism::NamedTuple{(:species, :reactions), Tuple{Vector{Species{N}}, Vector{R}}}) where {N<:Number, R<:AbstractReaction{N}} = Gas{N, R}(mechanism, State(mechanism))
+Gas(mechanism::Mechanism{N}) where {N<:Number} = Gas(mechanism, State(mechanism))
 
 function TPY!(gas::Gas{N}, T::N, P::N, Y::AbstractVector{N}) where {N<:Number}
     state = gas.state

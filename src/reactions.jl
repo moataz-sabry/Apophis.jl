@@ -156,12 +156,12 @@ function troe_function(::Val{:dC}, Fc::N, Pᵣ::N) where {N<:Number}
     return F, dFdPᵣ
 end
 
-struct ElementaryReaction{N<:Number} <: AbstractReaction{N}
+struct ElementaryReaction{N<:Number, S<:AbstractSpecies{N}} <: AbstractReaction{N}
     i::Int
     equation::Symbol
     isreversible::Bool
-    reactants::Vector{Pair{Species{N}, N}}
-    products::Vector{Pair{Species{N}, N}}
+    reactants::Vector{Pair{S, N}}
+    products::Vector{Pair{S, N}}
     reaction_order::N
     forward_rate_parameters::Maybe{Arrhenius{N}}
     reverse_rate_parameters::Maybe{Arrhenius{N}}
@@ -169,35 +169,35 @@ struct ElementaryReaction{N<:Number} <: AbstractReaction{N}
     rates::ReactionRates{N}
 end
 
-struct ThreeBodyReaction{N<:Number} <: AbstractReaction{N}
+struct ThreeBodyReaction{N<:Number, S<:AbstractSpecies{N}} <: AbstractReaction{N}
     i::Int
     equation::Symbol
     isreversible::Bool
-    reactants::Vector{Pair{Species{N}, N}}
-    products::Vector{Pair{Species{N}, N}}
+    reactants::Vector{Pair{S, N}}
+    products::Vector{Pair{S, N}}
     reaction_order::N
     forward_rate_parameters::Arrhenius{N}
     reverse_rate_parameters::Maybe{Arrhenius{N}}
-    enhancement_factors::Vector{Pair{Species{N}, N}}
+    enhancement_factors::Vector{Pair{S, N}}
     rates::ReactionRates{N}
 end
 
-struct FallOffReaction{N<:Number} <: AbstractReaction{N}
+struct FallOffReaction{N<:Number, S<:AbstractSpecies{N}} <: AbstractReaction{N}
     i::Int
     equation::Symbol
     isreversible::Bool
-    reactants::Vector{Pair{Species{N}, N}}
-    products::Vector{Pair{Species{N}, N}}
+    reactants::Vector{Pair{S, N}}
+    products::Vector{Pair{S, N}}
     reaction_order::N
     high_pressure_parameters::Arrhenius{N}
     low_pressure_parameters::Arrhenius{N}
     troe_parameters::Maybe{Troe{N}}
     reverse_rate_parameters::Maybe{Arrhenius{N}}
-    enhancement_factors::Vector{Pair{Species{N}, N}}
+    enhancement_factors::Vector{Pair{S, N}}
     rates::ReactionRates{N}
 end
 
-const Reaction{N} = Union{ElementaryReaction{N}, ThreeBodyReaction{N}, FallOffReaction{N}} where {N<:Number}
+const Reaction{N<:Number, S<:AbstractSpecies{N}} = Union{ElementaryReaction{N, S}, ThreeBodyReaction{N, S}, FallOffReaction{N, S}}
 
 @inline total_molar_concentration(C::Vector{N}, α::Vector{Pair{Species{N},N}}) where {N<:Number} = @inbounds sum(C[k] * f for ((; k), f) in α)
 
@@ -285,13 +285,13 @@ function forward_rate(v::Val{:dP}, (; rates, forward_rate_parameters, plog_param
     return nothing
 end
 
-@inline change_enthalpy((; reactants, products)::Reaction{<:Number}, i::Int = 1) = 
+@inline change_enthalpy((; reactants, products)::AbstractReaction{<:Number}, i::Int = 1) = 
     @inbounds sum(getfield(s.thermo.h, i)[] * ν for (s, ν) in flatten((reactants, products)))
 
-@inline change_entropy((; reactants, products)::Reaction{<:Number}, i::Int = 1) = 
+@inline change_entropy((; reactants, products)::AbstractReaction{<:Number}, i::Int = 1) = 
     @inbounds sum(getfield(s.thermo.s, i)[] * ν for (s, ν) in flatten((reactants, products)))
 
-@inline function equilibrium_constants(reaction::Reaction{N}, T::N) where {N<:Number}
+@inline function equilibrium_constants(reaction::AbstractReaction{N}, T::N) where {N<:Number}
     ∑ν = reaction.reaction_order
     t = inv(R * T)
     ∆H = change_enthalpy(reaction)
@@ -302,7 +302,7 @@ end
     return Kc
 end
 
-@inline function equilibrium_constants(::Val{:dT}, reaction::Reaction{N}, T::N) where {N<:Number}
+@inline function equilibrium_constants(::Val{:dT}, reaction::AbstractReaction{N}, T::N) where {N<:Number}
     ∆H, d∆HdT = (change_enthalpy(reaction, f) for f in OneTo(2))
     ∆S, d∆SdT = (change_entropy(reaction, f) for f in OneTo(2))
     
@@ -323,7 +323,7 @@ end
     return Kc, dKcdT
 end
 
-@inline function reverse_rate(reaction::Reaction{N}, (; T)::State{N}) where {N<:Number}
+@inline function reverse_rate(reaction::AbstractReaction{N}, (; T)::State{N}) where {N<:Number}
     (; rates, isreversible, reverse_rate_parameters) = reaction
     isreversible || return nothing
     isnothing(reverse_rate_parameters) || (rates.kr.val[] = reverse_rate_parameters(T);
@@ -334,7 +334,7 @@ end
     return nothing
 end
 
-@inline function reverse_rate(v::Val{:dT}, reaction::Reaction{N}, (; T)::State{N}) where {N<:Number}
+@inline function reverse_rate(v::Val{:dT}, reaction::AbstractReaction{N}, (; T)::State{N}) where {N<:Number}
     (; rates, isreversible, reverse_rate_parameters) = reaction
     (; kf, kr) = rates
 
@@ -355,7 +355,7 @@ end
 reverse_rate(::Val{:dC}, reaction::ElementaryReaction{N}, state::State{N}) where {N<:Number} = reverse_rate(reaction, state)
 reverse_rate(::Val{:dC}, reaction::ThreeBodyReaction{N}, state::State{N}) where {N<:Number} = reverse_rate(reaction, state)
 
-@inline function reverse_rate(::Val{:dP}, reaction::Reaction{N}, (; T)::State{N}) where {N<:Number}
+@inline function reverse_rate(::Val{:dP}, reaction::AbstractReaction{N}, (; T)::State{N}) where {N<:Number}
     (; rates, isreversible, reverse_rate_parameters) = reaction
     isreversible || return nothing
     isnothing(reverse_rate_parameters) || (rates.kr.val[] = reverse_rate_parameters(T);
@@ -389,7 +389,7 @@ end
 step(part::Vector{Pair{Species{N},N}}, C::Vector{N}) where {N<:Number} = @inbounds prod(C[k]^abs(ν) for ((; k), ν) in part) ## C in small values like in units of mol/cm^3 may lead to slightly different results due to this operation
 @inline step(part::Vector{Pair{Species{N},N}}, C::Vector{N}, j::Int) where {N<:Number} = @inbounds in(j, k for ((; k), ν) in part) ? prod(k ≠ j ? C[k]^abs(ν) : abs(ν) * C[k]^(abs(ν) - 1) for ((; k), ν) in part) : zero(N)
 
-function progress_rate(reaction::Reaction{N}, (; C)::State{N}) where {N<:Number}
+function progress_rate(reaction::AbstractReaction{N}, (; C)::State{N}) where {N<:Number}
     (; kf, kr, q) = reaction.rates
     ∏ᴵ = step(reaction.reactants, C)
     ∏ᴵᴵ = reaction.isreversible ? step(reaction.products, C) : zero(N)
@@ -399,7 +399,7 @@ function progress_rate(reaction::Reaction{N}, (; C)::State{N}) where {N<:Number}
     return nothing
 end
 
-function progress_rate(::Val{:dT}, reaction::Reaction{N}, (; C)::State{N}) where {N<:Number}
+function progress_rate(::Val{:dT}, reaction::AbstractReaction{N}, (; C)::State{N}) where {N<:Number}
     (; kf, kr, q) = reaction.rates
     ∏ᴵ = step(reaction.reactants, C)
     ∏ᴵᴵ = reaction.isreversible ? step(reaction.products, C) : zero(N)
@@ -455,7 +455,7 @@ function progress_rate(::Val{:dC}, reaction::FallOffReaction{N}, (; C)::State{N}
     return reaction
 end
 
-function progress_rate(::Val{:dP}, reaction::Reaction{N}, (; C)::State{N}) where {N<:Number}
+function progress_rate(::Val{:dP}, reaction::AbstractReaction{N}, (; C)::State{N}) where {N<:Number}
     (; kf, kr, q) = reaction.rates
     ∏ᴵ = step(reaction.reactants, C)
     ∏ᴵᴵ = reaction.isreversible ? step(reaction.products, C) : zero(N)
@@ -465,5 +465,5 @@ function progress_rate(::Val{:dP}, reaction::Reaction{N}, (; C)::State{N}) where
     return nothing
 end
 
-_update_reaction_rates(reaction::Reaction{N}, state::State{N}) where {N<:Number} = (forward_rate, reverse_rate, progress_rate)(reaction, state)
-_update_reaction_rates(v::Val, reaction::Reaction{N}, state::State{N}) where {N<:Number} = (forward_rate, reverse_rate, progress_rate)(v, reaction, state)
+_update_reaction_rates(reaction::AbstractReaction{N}, state::State{N}) where {N<:Number} = (forward_rate, reverse_rate, progress_rate)(reaction, state)
+_update_reaction_rates(v::Val, reaction::AbstractReaction{N}, state::State{N}) where {N<:Number} = (forward_rate, reverse_rate, progress_rate)(v, reaction, state)

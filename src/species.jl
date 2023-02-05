@@ -46,7 +46,7 @@ end
 
 (nasa::NasaPolynomial{N})(::Val{:dg}, T::N, i::Int) where {N<:Number} = gradient(nasa -> nasa(T)[i], nasa) |> only
 
-struct Species{N<:Number, R<:AbstractReaction{N}}
+struct Species{N<:Number, R<:AbstractReaction{N}} <: AbstractSpecies{N}
     k::Int
     formula::Symbol
     inreactions::Vector{Pair{R, N}}
@@ -59,27 +59,27 @@ struct Species{N<:Number, R<:AbstractReaction{N}}
     rates::SpeciesRates{N}
 end
 
-function _update_thermodynamics((; nasa_polynomial, thermo)::Species{N}, T::N) where {N<:Number}
+function _update_thermodynamics((; nasa_polynomial, thermo)::AbstractSpecies{N}, T::N) where {N<:Number}
     @inbounds thermo.cₚ.val[], thermo.h.val[], thermo.s.val[] = nasa_polynomial(T)
     return nothing
 end
 
-function _update_thermodynamics(v::Val{:dT}, (; nasa_polynomial, thermo)::Species{N}, T::N) where {N<:Number}
+function _update_thermodynamics(v::Val{:dT}, (; nasa_polynomial, thermo)::AbstractSpecies{N}, T::N) where {N<:Number}
     @inbounds thermo.cₚ.val[], thermo.cₚ.dT[], thermo.h.val[], thermo.h.dT[], thermo.s.val[], thermo.s.dT[] = nasa_polynomial(v, T)
     return nothing
 end
 
-_update_thermodynamics(::Val{:dC}, species::Species{N}, T::N) where {N<:Number} = _update_thermodynamics(species, T)
+_update_thermodynamics(::Val{:dC}, species::AbstractSpecies{N}, T::N) where {N<:Number} = _update_thermodynamics(species, T)
 
-_update_production_rates((; rates, inreactions)::Species{N}) where {N<:Number} = @inbounds setindex!(rates.ω̇.val, sum(r.rates.q.val[] * ν for (r, ν) in inreactions; init=zero(N)), 1)
+_update_production_rates((; rates, inreactions)::AbstractSpecies{N}) where {N<:Number} = @inbounds setindex!(rates.ω̇.val, sum(r.rates.q.val[] * ν for (r, ν) in inreactions; init=zero(N)), 1)
 
-function _update_production_rates(::Val{:dT}, species::Species{N}) where {N<:Number}
+function _update_production_rates(::Val{:dT}, species::AbstractSpecies{N}) where {N<:Number}
     _update_production_rates(species)
     @inbounds species.rates.ω̇.dT[] = sum(r.rates.q.dT[] * ν for (r, ν) in species.inreactions; init=zero(N))
     return nothing
 end
 
-function _update_production_rates(::Val{:dC}, species::Species{N}) where {N<:Number}
+function _update_production_rates(::Val{:dC}, species::AbstractSpecies{N}) where {N<:Number}
     _update_production_rates(species)
     for k in eachindex(species.rates.ω̇.dC)
         @inbounds species.rates.ω̇.dC[k] = sum(r.rates.q.dC[k] * ν for (r, ν) in species.inreactions; init=zero(N))

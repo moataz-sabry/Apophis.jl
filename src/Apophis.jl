@@ -11,7 +11,8 @@ using YAML: load_file
 using Zygote
 # using ThreadsX
 
-abstract type AbstractReaction{N} end
+abstract type AbstractSpecies{N<:Number} end
+abstract type AbstractReaction{N<:Number} end
 
 const R = 8.31446261815324e7 # erg/(K*mol)
 const Rc = 1.987261815324 # cal/(K*mol)
@@ -20,13 +21,13 @@ const Pa = 1013250.0 # dyn/cm^2
 const Tᵣ = 300.0 # K
 const d = 0.14
 
-const Maybe{T} = Union{T, Nothing} where {T}
+const Maybe{T} = Union{T, Nothing}
 const Diffusions = (:binary_diffusions, :mean_diffusions)
-const Energies{N} = NamedTuple{(:val, :dT), Tuple{Vector{N}, Vector{N}}} where {N<:Number}
-const Thermodynamics{N} = NamedTuple{(:cₚ, :h, :s), NTuple{3, Energies{N}}} where {N<:Number}
-const Rates{N} = NamedTuple{(:val, :dT, :dC), NTuple{3, Vector{N}}} where {N<:Number}
-const SpeciesRates{N} = NamedTuple{(:ω̇,), Tuple{Rates{N}}} where {N<:Number}
-const ReactionRates{N} = NamedTuple{(:kf, :kr, :q), NTuple{3, Rates{N}}} where {N<:Number}
+const Energies{N<:Number} = NamedTuple{(:val, :dT), Tuple{Vector{N}, Vector{N}}}
+const Thermodynamics{N<:Number} = NamedTuple{(:cₚ, :h, :s), NTuple{3, Energies{N}}}
+const Rates{N<:Number} = NamedTuple{(:val, :dT, :dC), NTuple{3, Vector{N}}}
+const SpeciesRates{N<:Number} = NamedTuple{(:ω̇,), Tuple{Rates{N}}}
+const ReactionRates{N<:Number} = NamedTuple{(:kf, :kr, :q), NTuple{3, Rates{N}}}
 
 include("species.jl")
 include("gas.jl")

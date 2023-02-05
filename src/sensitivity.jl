@@ -1,4 +1,4 @@
-function _kinetics_sensitivity(reaction::Reaction{N}, (; T, C)::State{N}) where {N<:Number}
+function _kinetics_sensitivity(reaction::AbstractReaction{N}, (; T, C)::State{N}) where {N<:Number}
     ∏ᴵ = step(reaction.reactants, C)
     M = reaction isa ThreeBodyReaction ? total_molar_concentration(C, reaction.enhancement_factors) : one(N)
 
