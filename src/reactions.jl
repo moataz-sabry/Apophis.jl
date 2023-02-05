@@ -100,7 +100,7 @@ function troe_function(Fc::N, Pᵣ::N) where {N<:Number}
     return F
 end
 
-function troe_function(::Val{:dT}, Fc::N, Pᵣ::N) where {N<:Number}
+function troe_function(::Val{:dT}, Fc::N, Pᵣ::N) where {N<:Number} ## Zygote is somehow slow here
     log10Pᵣ = log10(Pᵣ)
     dlog10PᵣdPᵣ = log(10.0)Pᵣ |> inv
     log10Fc = log10(Fc)
@@ -285,35 +285,6 @@ function forward_rate(v::Val{:dP}, (; rates, forward_rate_parameters, plog_param
     return nothing
 end
 
-_dkfdA((; forward_rate_parameters)::Union{ElementaryReaction{N}, ThreeBodyReaction{N}}, (; T)::State{N}) where {N<:Real} = forward_rate_parameters(Val(:dg), T) |> first
-
-function _dkfdA((; high_pressure_parameters, low_pressure_parameters, enhancement_factors, troe_parameters)::FallOffReaction{N}, (; T, C)::State{N}) where {N<:Real} ## Add dkfdAₒ later
-    k∞, kₒ = (high_pressure_parameters, low_pressure_parameters)(T)
-    M = total_molar_concentration(C, enhancement_factors)
-    Pᵣ = reduced_pressure(kₒ, M, k∞)
-    t = inv(one(N) + Pᵣ)
-    
-    dk∞dA∞ = high_pressure_parameters(Val(:dg), T) |> first
-    dPᵣdk∞ = reduced_pressure(Val(:dk∞), kₒ, M, k∞)
-
-    if isnothing(troe_parameters)
-        dkfdk∞ = Pᵣ * t
-        dkfdPᵣ = k∞ * t^2
-        dkfdA∞ = dkfdk∞ * dk∞dA∞ + dkfdPᵣ * dPᵣdk∞ * dk∞dA∞
-    else
-        Fc = troe_parameters(T)
-        F, dFdPᵣ = troe_function(Val(:dC), Fc, Pᵣ)
-
-        dkfdF = k∞ * Pᵣ * t 
-        dkfdk∞ = F * Pᵣ * t
-        dkfdPᵣ = F * k∞ * t^2
-
-        dFdA = dFdPᵣ * (dPᵣdk∞ * dk∞dA∞)
-        dkfdA∞ = dkfdF * dFdA + dkfdk∞ * dk∞dA∞ + dkfdPᵣ * dPᵣdk∞ * dk∞dA∞
-    end
-    return dkfdA∞
-end
-
 @inline change_enthalpy((; reactants, products)::Reaction{<:Number}, i::Int = 1) = 
     @inbounds sum(getfield(s.thermo.h, i)[] * ν for (s, ν) in flatten((reactants, products)))
 
@@ -492,23 +463,6 @@ function progress_rate(::Val{:dP}, reaction::Reaction{N}, (; C)::State{N}) where
     M = reaction isa ThreeBodyReaction ? total_molar_concentration(C, reaction.enhancement_factors) : one(N)
     @inbounds q.dP[] = M * (kf.dP[] * ∏ᴵ - kr.dP[] * ∏ᴵᴵ)
     return nothing
-end
-
-function _kinetics_sensitivity(reaction::Reaction{N}, (; T, C)::State{N}) where {N<:Number}
-    ∏ᴵ = step(reaction.reactants, C)
-    M = reaction isa ThreeBodyReaction ? total_molar_concentration(C, reaction.enhancement_factors) : one(N)
-
-    if reaction.isreversible
-        Kc = equilibrium_constants(reaction, T)
-        ∏ᴵᴵ = step(reaction.products, C)
-        dkrdkf = inv(Kc)
-    else
-        Kc = ∏ᴵᴵ = dkrdkf = zero(N)
-    end
-    
-    dqdkf = M * (∏ᴵ - dkrdkf * ∏ᴵᴵ)
-    dqdkr = -M * ∏ᴵᴵ
-    return dqdkf, dqdkr
 end
 
 _update_reaction_rates(reaction::Reaction{N}, state::State{N}) where {N<:Number} = (forward_rate, reverse_rate, progress_rate)(reaction, state)

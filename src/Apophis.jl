@@ -29,10 +29,11 @@ const SpeciesRates{N} = NamedTuple{(:ω̇,), Tuple{Rates{N}}} where {N<:Number}
 const ReactionRates{N} = NamedTuple{(:kf, :kr, :q), NTuple{3, Rates{N}}} where {N<:Number}
 
 include("species.jl")
-include("state.jl")
+include("gas.jl")
 include("reactions.jl")
 include("reader.jl")
 include("calc.jl")
+include("sensitivity.jl")
 include("utils.jl")
 
 end
