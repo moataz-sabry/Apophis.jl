@@ -7,21 +7,20 @@ end
 Arrhenius() = nothing
 Arrhenius(itr) = Arrhenius(itr...)
 
-@inline ((; A, β, E)::Arrhenius{N})(T::N) where {N<:Number} = @fastmath A * T^β * exp(-E * inv(Rc * T))
+((; A, β, E)::Arrhenius{N})(T::N) where {N<:Number} = A * T^β * exp(-E * inv(Rc * T))
+(arrhenius::Arrhenius{N})(::Val{:dg}, T::N) where {N<:Number} = gradient(arrhenius -> arrhenius(T), arrhenius) |> only
 
 function ((; A, β, E)::Arrhenius{N})(::Val{:dT}, T::N) where {N<:Number}
-    t = exp(-inv(Rc * T)E)
+    t = exp(-E * inv(Rc * T))
     kf = A * T^β * t
     dkfdT = kf * (inv(T)β + inv(Rc * T^2)E)
     return kf, dkfdT
 end
 
-(arrhenius::Arrhenius{N})(::Val{:dg}, T::N) where {N<:Number} = gradient(arrhenius -> arrhenius(T), arrhenius) |> only
-
-reduced_pressure(kₒ::N, M::N, k∞::N) where {N<:Number} = @fastmath kₒ * M * inv(k∞)
-reduced_pressure(::Val{:dkₒ}, M::N, k∞::N) where {N<:Number} = @fastmath M * inv(k∞)
-reduced_pressure(::Val{:dM}, kₒ::N, k∞::N) where {N<:Number} = @fastmath kₒ * inv(k∞)
-reduced_pressure(::Val{:dk∞}, kₒ::N, M::N, k∞::N) where {N<:Number} = @fastmath -kₒ * M * inv(k∞)^2
+reduced_pressure(kₒ::N, M::N, k∞::N) where {N<:Number} = kₒ * M * inv(k∞)
+reduced_pressure(::Val{:dkₒ}, M::N, k∞::N) where {N<:Number} = M * inv(k∞)
+reduced_pressure(::Val{:dM}, kₒ::N, k∞::N) where {N<:Number} = kₒ * inv(k∞)
+reduced_pressure(::Val{:dk∞}, kₒ::N, M::N, k∞::N) where {N<:Number} = -kₒ * M * inv(k∞)^2
 
 struct Plog{N<:Number}
     pressures::Vector{N}
@@ -30,15 +29,15 @@ end
 
 Plog(itr...) = isempty(first(itr)) ? nothing : Plog(first(itr), Arrhenius{Float64}[Arrhenius(p) for p in zip(rest(itr, 2)...)])
 
-@inline function isin(p::N, x::Vector{N}) where {N<:Number}
+function isin(p::N, x::Vector{N}) where {N<:Number}
     for i in eachindex(x)
         x[i] ≤ p && x[i+1] > p && return i
     end
 end
 
 isout(p::N, x::Vector{N}) where {N<:Number} = p > last(x) ? lastindex(x) : p < first(x) ? firstindex(x) : nothing ## on the assumption that plogs are sorted, To-Do: sort in advance
-interpolate(kᵢ::N, kᵢ₊₁::N, Pᵢ::N, Pᵢ₊₁::N, P::N) where {N<:Number} = @fastmath log(kᵢ) + (log(kᵢ₊₁) - log(kᵢ)) * (log(P) - log(Pᵢ)) / (log(Pᵢ₊₁) - log(Pᵢ))
-interpolate(::Val{:dP}, kᵢ::N, kᵢ₊₁::N, Pᵢ::N, Pᵢ₊₁::N, P::N) where {N<:Number} =  @fastmath (log(kᵢ₊₁) - log(kᵢ)) / (log(Pᵢ₊₁) - log(Pᵢ))P
+interpolate(kᵢ::N, kᵢ₊₁::N, Pᵢ::N, Pᵢ₊₁::N, P::N) where {N<:Number} = log(kᵢ) + (log(kᵢ₊₁) - log(kᵢ)) * (log(P) - log(Pᵢ)) / (log(Pᵢ₊₁) - log(Pᵢ))
+interpolate(::Val{:dP}, kᵢ::N, kᵢ₊₁::N, Pᵢ::N, Pᵢ₊₁::N, P::N) where {N<:Number} =  (log(kᵢ₊₁) - log(kᵢ)) / (log(Pᵢ₊₁) - log(Pᵢ))P
 
 function ((; pressures, arrhenius)::Plog{N})(T::N, P::N) where {N<:Number}
     i = isout(P, pressures)
@@ -79,24 +78,20 @@ end
 
 Troe() = nothing
 Troe(itr) = Troe(itr...)
-
-Troe(a::N, T₃::N, T₁::N, ::Nothing) where {N<:Number} = Troe(a, T₃, T₁, zero(N))
 Troe(a::N, T₃::N, T₁::N) where {N<:Number} = Troe(a, T₃, T₁, zero(N))
+Troe(a::N, T₃::N, T₁::N, ::Nothing) where {N<:Number} = Troe(a, T₃, T₁, zero(N))
 
-@inline ((; a, T₃, T₁, T₂)::Troe{N})(T::N) where {N<:Number} = (1.0 - a) * exp(-T / T₃) + a * exp(-T / T₁) + (iszero(T₂) ? zero(N) : exp(-T₂ / T))
-@inline ((; a, T₃, T₁, T₂)::Troe{N})(::Val{:dT}, T::N) where {N<:Number} = (a - one(N)) * exp(-T / T₃) / T₃ - a * exp(-T / T₁) / T₁ + (iszero(T₂) ? zero(N) : exp(-T₂ / T) * T₂ / T^2)
-
+((; a, T₃, T₁, T₂)::Troe{N})(T::N) where {N<:Number} = (1.0 - a) * exp(-T / T₃) + a * exp(-T / T₁) + (iszero(T₂) ? zero(N) : exp(-T₂ / T))
+((; a, T₃, T₁, T₂)::Troe{N})(::Val{:dT}, T::N) where {N<:Number} = (a - one(N)) * exp(-T / T₃) / T₃ - a * exp(-T / T₁) / T₁ + (iszero(T₂) ? zero(N) : exp(-T₂ / T) * T₂ / T^2)
 (troe::Troe{N})(::Val{:dg}, T::N) where {N<:Number} = gradient(troe -> troe(T), troe) |> only
 
 function troe_function(Fc::N, Pᵣ::N) where {N<:Number}
-    log10Pᵣ = log10(Pᵣ)
     log10Fc = log10(Fc)
-
     c = -0.4 - 0.67log10Fc
     n = 0.75 - 1.27log10Fc
-    t = log10Pᵣ + c
 
-    F = 10.0^(log10Fc * inv(one(N) + (inv(n - d * t)t)^2.0))
+    t = log10(Pᵣ) + c
+    F = 10.0^(log10Fc * inv(one(N) + (inv(n - d * t)t)^2))
     return F
 end
 
@@ -199,7 +194,7 @@ end
 
 const Reaction{N<:Number, S<:AbstractSpecies{N}} = Union{ElementaryReaction{N, S}, ThreeBodyReaction{N, S}, FallOffReaction{N, S}}
 
-@inline total_molar_concentration(C::Vector{N}, α::Vector{Pair{Species{N},N}}) where {N<:Number} = @inbounds sum(C[k] * f for ((; k), f) in α)
+total_molar_concentration(C::Vector{N}, α::Vector{Pair{Species{N},N}}) where {N<:Number} = @inbounds sum(C[k] * f for ((; k), f) in α)
 
 forward_rate((; rates, forward_rate_parameters, plog_parameters)::ElementaryReaction{N}, (; T, P)::State{N}) where {N<:Number} = setindex!(rates.kf.val, isnothing(plog_parameters) ? forward_rate_parameters(T) : plog_parameters(T, P), 1)
 forward_rate((; rates, forward_rate_parameters)::ThreeBodyReaction{N}, (; T)::State{N}) where {N<:Number} = setindex!(rates.kf.val, forward_rate_parameters(T), 1)
@@ -211,18 +206,18 @@ function forward_rate(reaction::FallOffReaction{N}, (; T, C)::State{N}) where {N
     M = total_molar_concentration(C, enhancement_factors)
     Pᵣ = reduced_pressure(kₒ, M, k∞)
 
-    F = isnothing(troe_parameters) ? one(N) : troe_parameters(T) |> Fc -> troe_function(Fc, Pᵣ)
-    rates.kf.val[] = F * k∞ * Pᵣ * inv(one(N) + Pᵣ)
+    F = isnothing(troe_parameters) ? one(N) : troe_parameters(T) |> Fix2(troe_function, Pᵣ)
+    @inbounds rates.kf.val[] = F * k∞ * Pᵣ * inv(one(N) + Pᵣ)
     return nothing
 end
 
 function forward_rate(v::Val{:dT}, (; rates, forward_rate_parameters, plog_parameters)::ElementaryReaction{N}, (; T, P)::State{N}) where {N<:Number}
-    rates.kf.val[], rates.kf.dT[] = isnothing(plog_parameters) ? forward_rate_parameters(v, T) : plog_parameters(v, T, P)
+    @inbounds rates.kf.val[], rates.kf.dT[] = isnothing(plog_parameters) ? forward_rate_parameters(v, T) : plog_parameters(v, T, P)
     return nothing
 end
 
 function forward_rate(v::Val{:dT}, (; rates, forward_rate_parameters)::ThreeBodyReaction{N}, (; T)::State{N}) where {N<:Number}
-    rates.kf.val[], rates.kf.dT[] = forward_rate_parameters(v, T)
+    @inbounds rates.kf.val[], rates.kf.dT[] = forward_rate_parameters(v, T)
     return nothing
 end
 
@@ -241,8 +236,8 @@ function forward_rate(v::Val{:dT}, reaction::FallOffReaction{N}, (; T, C)::State
     dPᵣdT = dPᵣdkₒ * dkₒdT + dPᵣdk∞ * dk∞dT
 
     if isnothing(troe_parameters)
-        rates.kf.val[] = k∞ * Pᵣ * t
-        rates.kf.dT[] = t * (dk∞dT * Pᵣ + dPᵣdT * k∞ * t)
+        @inbounds rates.kf.val[] = k∞ * Pᵣ * t
+        @inbounds rates.kf.dT[] = t * (dk∞dT * Pᵣ + dPᵣdT * k∞ * t)
     else
         Fc = troe_parameters(T)
         dFcdT = troe_parameters(v, T)
@@ -250,8 +245,8 @@ function forward_rate(v::Val{:dT}, reaction::FallOffReaction{N}, (; T, C)::State
         F, dFdFc, dFdPᵣ = troe_function(v, Fc, Pᵣ)
         dFdT = dFdFc * dFcdT + dFdPᵣ * dPᵣdT
 
-        rates.kf.val[] = F * k∞ * Pᵣ * t
-        rates.kf.dT[] = t * ((dk∞dT * Pᵣ + dPᵣdT * k∞ * t)F + dFdT * k∞ * Pᵣ)
+        @inbounds rates.kf.val[] = F * k∞ * Pᵣ * t
+        @inbounds rates.kf.dT[] = t * ((dk∞dT * Pᵣ + dPᵣdT * k∞ * t)F + dFdT * k∞ * Pᵣ)
     end
     return nothing
 end
@@ -271,7 +266,7 @@ function forward_rate(v::Val{:dC}, reaction::FallOffReaction{N}, (; T, C)::State
     dPᵣdM = reduced_pressure(Val(:dM), kₒ, k∞)
     F, dFdPᵣ = isnothing(troe_parameters) ? (one(N), zero(N)) : troe_parameters(T) |> Fc -> troe_function(v, Fc, Pᵣ)
 
-    rates.kf.val[] = F * k∞ * Pᵣ * t
+    @inbounds rates.kf.val[] = F * k∞ * Pᵣ * t
     dkfdPᵣ = F * k∞ * t^2
     dkfdF = k∞ * Pᵣ * t 
     for ((; k), dMdCₖ) in enhancement_factors ## SparseArrays?
@@ -285,13 +280,13 @@ function forward_rate(v::Val{:dP}, (; rates, forward_rate_parameters, plog_param
     return nothing
 end
 
-@inline change_enthalpy((; reactants, products)::AbstractReaction{<:Number}, i::Int = 1) = 
+change_enthalpy((; reactants, products)::AbstractReaction{<:Number}, i::Int = 1) = 
     @inbounds sum(getfield(s.thermo.h, i)[] * ν for (s, ν) in flatten((reactants, products)))
 
-@inline change_entropy((; reactants, products)::AbstractReaction{<:Number}, i::Int = 1) = 
+change_entropy((; reactants, products)::AbstractReaction{<:Number}, i::Int = 1) = 
     @inbounds sum(getfield(s.thermo.s, i)[] * ν for (s, ν) in flatten((reactants, products)))
 
-@inline function equilibrium_constants(reaction::AbstractReaction{N}, T::N) where {N<:Number}
+function equilibrium_constants(reaction::AbstractReaction{N}, T::N) where {N<:Number}
     ∑ν = reaction.reaction_order
     t = inv(R * T)
     ∆H = change_enthalpy(reaction)
@@ -302,7 +297,7 @@ end
     return Kc
 end
 
-@inline function equilibrium_constants(::Val{:dT}, reaction::AbstractReaction{N}, T::N) where {N<:Number}
+function equilibrium_constants(::Val{:dT}, reaction::AbstractReaction{N}, T::N) where {N<:Number}
     ∆H, d∆HdT = (change_enthalpy(reaction, f) for f in OneTo(2))
     ∆S, d∆SdT = (change_entropy(reaction, f) for f in OneTo(2))
     
@@ -323,18 +318,18 @@ end
     return Kc, dKcdT
 end
 
-@inline function reverse_rate(reaction::AbstractReaction{N}, (; T)::State{N}) where {N<:Number}
+function reverse_rate(reaction::AbstractReaction{N}, (; T)::State{N}) where {N<:Number}
     (; rates, isreversible, reverse_rate_parameters) = reaction
     isreversible || return nothing
-    isnothing(reverse_rate_parameters) || (rates.kr.val[] = reverse_rate_parameters(T);
+    isnothing(reverse_rate_parameters) || (@inbounds rates.kr.val[] = reverse_rate_parameters(T);
         return nothing
     )
     Kc = equilibrium_constants(reaction, T)
-    rates.kr.val[] = rates.kf.val[] / Kc
+    @inbounds rates.kr.val[] = rates.kf.val[] / Kc
     return nothing
 end
 
-@inline function reverse_rate(v::Val{:dT}, reaction::AbstractReaction{N}, (; T)::State{N}) where {N<:Number}
+function reverse_rate(v::Val{:dT}, reaction::AbstractReaction{N}, (; T)::State{N}) where {N<:Number}
     (; rates, isreversible, reverse_rate_parameters) = reaction
     (; kf, kr) = rates
 
@@ -346,39 +341,39 @@ end
     t = inv(Kc)
 
     ∂kr∂kf = t
-    ∂kr∂Kc = -kf.val[] * t^2
-    kr.val[] = kf.val[] * t
-    kr.dT[] = ∂kr∂kf * kf.dT[] + ∂kr∂Kc * dKcdT
+    @inbounds ∂kr∂Kc = -kf.val[] * t^2
+    @inbounds kr.val[] = kf.val[] * t
+    @inbounds kr.dT[] = ∂kr∂kf * kf.dT[] + ∂kr∂Kc * dKcdT
     return nothing
 end
 
 reverse_rate(::Val{:dC}, reaction::ElementaryReaction{N}, state::State{N}) where {N<:Number} = reverse_rate(reaction, state)
 reverse_rate(::Val{:dC}, reaction::ThreeBodyReaction{N}, state::State{N}) where {N<:Number} = reverse_rate(reaction, state)
 
-@inline function reverse_rate(::Val{:dP}, reaction::AbstractReaction{N}, (; T)::State{N}) where {N<:Number}
+function reverse_rate(::Val{:dP}, reaction::AbstractReaction{N}, (; T)::State{N}) where {N<:Number}
     (; rates, isreversible, reverse_rate_parameters) = reaction
     isreversible || return nothing
-    isnothing(reverse_rate_parameters) || (rates.kr.val[] = reverse_rate_parameters(T);
+    isnothing(reverse_rate_parameters) || (@inbounds rates.kr.val[] = reverse_rate_parameters(T);
         return nothing
     )
     Kc = equilibrium_constants(reaction, T)
-    rates.kr.dP[] = rates.kf.dP[] / Kc
+    @inbounds rates.kr.dP[] = rates.kf.dP[] / Kc
     return nothing
 end
 
-@inline function reverse_rate(::Val{:dC}, reaction::FallOffReaction{N}, (; T)::State{N}) where {N<:Number}
+function reverse_rate(::Val{:dC}, reaction::FallOffReaction{N}, (; T)::State{N}) where {N<:Number}
     (; rates, isreversible, reverse_rate_parameters) = reaction
     (; kf, kr) = rates
 
     isreversible || return nothing
-    isnothing(reverse_rate_parameters) || (kr.val = reverse_rate_parameters(T);
+    isnothing(reverse_rate_parameters) || (@inbounds kr.val[] = reverse_rate_parameters(T);
         return nothing
     )
     Kc = equilibrium_constants(reaction, T)
     t = inv(Kc)
 
     dkrdkf = t
-    kr.val[] = kf.val[] * t
+    @inbounds kr.val[] = kf.val[] * t
     map!(kr.dC, kf.dC) do dkfdCₖ
         dkrdCₖ = dkrdkf * dkfdCₖ
         return dkrdCₖ
@@ -387,7 +382,7 @@ end
 end
 
 step(part::Vector{Pair{Species{N},N}}, C::Vector{N}) where {N<:Number} = @inbounds prod(C[k]^abs(ν) for ((; k), ν) in part) ## C in small values like in units of mol/cm^3 may lead to slightly different results due to this operation
-@inline step(part::Vector{Pair{Species{N},N}}, C::Vector{N}, j::Int) where {N<:Number} = @inbounds in(j, k for ((; k), ν) in part) ? prod(k ≠ j ? C[k]^abs(ν) : abs(ν) * C[k]^(abs(ν) - 1) for ((; k), ν) in part) : zero(N)
+step(part::Vector{Pair{Species{N},N}}, C::Vector{N}, j::Int) where {N<:Number} = @inbounds in(j, k for ((; k), ν) in part) ? prod(k ≠ j ? C[k]^abs(ν) : abs(ν) * C[k]^(abs(ν) - 1) for ((; k), ν) in part) : zero(N)
 
 function progress_rate(reaction::AbstractReaction{N}, (; C)::State{N}) where {N<:Number}
     (; kf, kr, q) = reaction.rates

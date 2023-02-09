@@ -312,7 +312,7 @@ Finds the reactions of the given kinetics `data`. Returns a vector of the reacti
 find_reaction(data::String, species::Vector{Species{N}}) where {N<:Number} = Reaction{N, Species{N}}[_find_reaction(i, r, species) for (i, r) in enumerate(eachmatch(:reactions, data))]
 find_reaction(reactions::Vector{<:Dict}, species::Vector{Species{N}}) where {N<:Number} = Reaction{N, Species{N}}[_find_reaction(i, r, species) for (i, r) in enumerate(reactions)]
 
-function get_stoichiometry_matrix(species::Vector{<:Species})
+function get_stoichiometry_matrix(species::Vector{<:Species}) ## fail in case a species doesn't appear in any reaction
     K = [s.k for s in species for _ in s.inreactions]
     I = [r.i for s in species for (r, _) in s.inreactions]
     V = [ν for s in species for (_, ν) in s.inreactions]

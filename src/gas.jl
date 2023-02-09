@@ -1,4 +1,7 @@
-const Mechanism{N, S, R} = NamedTuple{(:species, :reactions, :stoichiometry_matrix), Tuple{Vector{S}, Vector{R}, SparseMatrixCSC{N, Int}}} where {N<:Number, S<:AbstractSpecies{N}, R<:AbstractReaction{N}}
+const Mechanism{N<:Number, S<:AbstractSpecies{N}, R<:AbstractReaction{N}} = NamedTuple{
+    tuple(:species, :reactions, :stoichiometry_matrix),
+    Tuple{Vector{S}, Vector{R}, SparseMatrixCSC{N, Int}}
+}
 
 mutable struct State{N<:Number}
     T::N

@@ -18,7 +18,7 @@ end
 _kinetics_sensitivity((; mechanism, state)::Gas{N}, d::Int = 1) where {N<:Number} = @inbounds map(reaction -> _kinetics_sensitivity(reaction, state)[d], mechanism.reactions) |> Diagonal{N}
 kinetics_sensitivity(gas::Gas{N}, d::Int = 1) where {N<:Number} = stoichiometry_matrix(gas) * _kinetics_sensitivity(gas, d)
 
-_dkfdA((; forward_rate_parameters)::Union{ElementaryReaction{N}, ThreeBodyReaction{N}}, (; T)::State{N}) where {N<:Number} = forward_rate_parameters(Val(:dg), T) |> first
+_dkfdA((; forward_rate_parameters)::Union{ElementaryReaction{N}, ThreeBodyReaction{N}}, (; T)::State{N}) where {N<:Number} = forward_rate_parameters(Val(:dg), T)[:A]
 
 function _dkfdA((; high_pressure_parameters, low_pressure_parameters, enhancement_factors, troe_parameters)::FallOffReaction{N}, (; T, C)::State{N}) where {N<:Number} ## Add dkfdAₒ later
     k∞, kₒ = (high_pressure_parameters, low_pressure_parameters)(T)
@@ -26,7 +26,7 @@ function _dkfdA((; high_pressure_parameters, low_pressure_parameters, enhancemen
     Pᵣ = reduced_pressure(kₒ, M, k∞)
     t = inv(one(N) + Pᵣ)
     
-    dk∞dA∞ = high_pressure_parameters(Val(:dg), T) |> first
+    dk∞dA∞ = high_pressure_parameters(Val(:dg), T)[:A]
     dPᵣdk∞ = reduced_pressure(Val(:dk∞), kₒ, M, k∞)
     
     if isnothing(troe_parameters)
