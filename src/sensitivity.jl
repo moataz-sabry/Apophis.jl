@@ -2,7 +2,7 @@ function _kinetics_sensitivity(reaction::AbstractReaction{N}, (; T, C)::State{N}
     ∏ᴵ = step(reaction.reactants, C)
     M = reaction isa ThreeBodyReaction ? total_molar_concentration(C, reaction.enhancement_factors) : one(N)
 
-    if reaction.isreversible
+    if reaction.isreversible && isnothing(reaction.reverse_rate_parameters)
         Kc = equilibrium_constants(reaction, T)
         ∏ᴵᴵ = step(reaction.products, C)
         dkrdkf = inv(Kc)
@@ -14,9 +14,6 @@ function _kinetics_sensitivity(reaction::AbstractReaction{N}, (; T, C)::State{N}
     dqdkr = -M * ∏ᴵᴵ
     return dqdkf, dqdkr
 end
-
-_kinetics_sensitivity((; mechanism, state)::Gas{N}, d::Int = 1) where {N<:Number} = @inbounds map(reaction -> _kinetics_sensitivity(reaction, state)[d], mechanism.reactions) |> Diagonal{N}
-kinetics_sensitivity(gas::Gas{N}, d::Int = 1) where {N<:Number} = stoichiometry_matrix(gas) * _kinetics_sensitivity(gas, d)
 
 _dkfdA((; forward_rate_parameters)::Union{ElementaryReaction{N}, ThreeBodyReaction{N}}, (; T)::State{N}) where {N<:Number} = forward_rate_parameters(Val(:dg), T)[:A]
 
@@ -37,7 +34,7 @@ function _dkfdA((; high_pressure_parameters, low_pressure_parameters, enhancemen
         Fc = troe_parameters(T)
         F, dFdPᵣ = troe_function(Val(:dC), Fc, Pᵣ)
         
-        dkfdF = k∞ * Pᵣ * t 
+        dkfdF = k∞ * Pᵣ * t
         dkfdk∞ = F * Pᵣ * t
         dkfdPᵣ = F * k∞ * t^2
         
@@ -47,5 +44,13 @@ function _dkfdA((; high_pressure_parameters, low_pressure_parameters, enhancemen
     return dkfdA∞
 end
 
-dkfdA((; mechanism, state)::Gas{N}) where {N<:Number} = map(reaction -> _dkfdA(reaction, state), mechanism.reactions) |> Diagonal{N}
-dω̇dA(gas::Gas{<:Number}) = kinetics_sensitivity(gas) * dkfdA(gas)
+function dω̇dA((; mechanism, state)::Gas{N}) where {N<:Number}
+    dω̇dA = zeros(N, length(mechanism.species), length(mechanism.reactions))
+    for (i, reaction) in enumerate(mechanism.reactions)
+        dqdA = _kinetics_sensitivity(reaction, state)[1] * _dkfdA(reaction, state)
+        for ((; k), ν) in flatten((reaction.reactants, reaction.products))
+            @inbounds dω̇dA[k, i] = ν * dqdA
+        end
+    end
+    return dω̇dA
+end

@@ -429,6 +429,7 @@ function progress_rate(::Val{:dC}, reaction::ThreeBodyReaction{N}, (; C)::State{
         d∏ᴵᴵdCₖ = step(reaction.products, C, k)
         @inbounds q.dC[k] = M * (kf.val[] * d∏ᴵdCₖ - kr.val[] * d∏ᴵᴵdCₖ)
     end
+    
     for ((; k), dMdCₖ) in reaction.enhancement_factors
         @inbounds q.dC[k] += dMdCₖ * (kf.val[] * ∏ᴵ - kr.val[] * ∏ᴵᴵ)
     end
