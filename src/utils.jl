@@ -105,9 +105,9 @@ forward_rates(gas::Gas{<:Number}, v::Val = Val(:val)) = mapview(r -> forward_rat
 reverse_rate(reaction::AbstractReaction{<:Number}, ::Val{:val}=Val(:val)) = reaction.rates.kr.val[]
 reverse_rate(reaction::AbstractReaction{<:Number}, ::Val{:dT}) = reaction.rates.kr.dT[]
 reverse_rate(reaction::AbstractReaction{<:Number}, ::Val{:dC}) = reaction.rates.kr.dC
-reverse_rates(gas::Gas{<:Number}, v::Val = Val(:val)) = mapview(r -> forward_rate(r, v), reactions(gas))
+reverse_rates(gas::Gas{<:Number}, v::Val = Val(:val)) = mapview(r -> reverse_rate(r, v), reactions(gas))
 
 progress_rate(reaction::AbstractReaction{<:Number}, ::Val{:val}=Val(:val); in=nothing) = reaction.rates.q.val[] * (isnothing(in) || ustrip(in, 1u"mol/(cm^3*s)"))
 progress_rate(reaction::AbstractReaction{<:Number}, ::Val{:dT}; in=nothing) = reaction.rates.q.dT[] * (isnothing(in) || ustrip(in, 1u"mol/(cm^3*K*s)"))
 progress_rate(reaction::AbstractReaction{<:Number}, ::Val{:dC}; in=nothing) = reaction.rates.q.dC
-progress_rates(gas::Gas{<:Number}, v::Val = Val(:val)) = mapview(r -> forward_rate(r, v), reactions(gas))
+progress_rates(gas::Gas{<:Number}, v::Val = Val(:val)) = mapview(r -> progress_rate(r, v), reactions(gas))
