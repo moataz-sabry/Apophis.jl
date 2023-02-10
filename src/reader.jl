@@ -191,9 +191,8 @@ Finds the enhancement factors in the given reaction `data`. Returns vector of pa
 
 function remove_threebody!(parts::Vector{Pair{Species{N}, N}}, threebody::Species{N}) where {N<:Number}
     index = findfirst(part -> isequal(part.first, threebody), parts)
-    part = parts[index]
-    species, moles = part
-    abs(moles) |> isone ? popat!(parts, index) : (part = species => moles - flipsign(one(N), moles))
+    species, moles = parts[index]
+    abs(moles) |> isone ? popat!(parts, index) : (parts[index] = species => moles - flipsign(one(N), moles))
     return nothing
 end
 
