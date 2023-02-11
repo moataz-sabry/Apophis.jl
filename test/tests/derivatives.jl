@@ -53,6 +53,22 @@ function check_derivatives(real_gas, complex_gas, ε=1e-200)
     end
 end
 
+function test_production_rates_dT(gas_Apophis, gas_Cantera)
+    @testset verbose = false "production rates: dT" begin
+        for (i, v) in enumerate(gas_Cantera.net_test_production_rates_ddT)
+            @test isapprox(production_rate(species(gas_Apophis, i), :dT) * 10^3, v, rtol = 0.005)
+        end
+    end
+end
+
+function test_production_rates_dC(gas_Apophis, gas_Cantera)
+    @testset verbose = false "production rates: dC" begin
+        dC = gas_Cantera.net_test_production_rates_ddC
+        for k in axes(dC, 1), j in axes(dC, 2)
+            @test isapprox(production_rate(species(gas_Apophis, i), :dC)[i, j] * 10^3, dC[i, j], rtol = 0.005)
+        end
+    end
+end
 
 function test_calculations_derivatives(mech::Symbol)
     @testset verbose = true "Mechanism: $mech" begin

@@ -17,9 +17,9 @@ test_species_name(gas_Apophis, gas_Cantera) = foreach(_test_species_name, specie
 function test_species_molecular_weights(gas_Apophis, gas_Cantera)
     molecular_weights_Apophis = molecular_weights(gas_Apophis)
     molecular_weights_Cantera = gas_Cantera.molecular_weights
-    for (k, (molecular_weight_Apophis, molecular_weight_Cantera)) in enumerate(zip(molecular_weights_Apophis, molecular_weights_Cantera))
+    for k in eachindex(molecular_weights_Apophis)
         try
-            @test molecular_weight_Apophis ≈ molecular_weight_Cantera rtol = 0.001
+            @test molecular_weights_Apophis[k] ≈ molecular_weights_Cantera[k] rtol = 0.001
         catch e
             println("Molecular weight: Apophis ($molecular_weight_Apophis) & Cantera ($molecular_weight_Cantera) for species $(species(gas_Apophis, k))")
             rethrow(e)
@@ -195,18 +195,16 @@ function test_reactions_reader(gas_Apophis, gas_Cantera)
 end
 
 function test_reader(mech::Union{String, Symbol})
-    @testset "Mechanism: $mech" begin
-        gas_Apophis = Gas(mech)
-        gas_Cantera = run_cantera(mech)
-        
-        # Test the species reader
-        @testset "Species" begin
-            test_species_reader(gas_Apophis, gas_Cantera)
-        end
-        
-        # Test the reactions reader
-        @testset "Reactions" begin
-            test_reactions_reader(gas_Apophis, gas_Cantera)
-        end
+    gas_Apophis = Gas(mech)
+    gas_Cantera = run_cantera(mech)
+    
+    # Test the species reader
+    @testset "Species" begin
+        test_species_reader(gas_Apophis, gas_Cantera)
+    end
+    
+    # Test the reactions reader
+    @testset "Reactions" begin
+        test_reactions_reader(gas_Apophis, gas_Cantera)
     end
 end
