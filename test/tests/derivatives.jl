@@ -52,3 +52,22 @@ function check_derivatives(real_gas, complex_gas, ε=1e-200)
         end
     end
 end
+
+
+function test_calculations_derivatives(mech::Symbol)
+    @testset verbose = true "Mechanism: $mech" begin
+        real_gas = Gas(mech)
+        complex_gas = Gas(mech; as=ComplexF64)
+        rnd = rand(length(real_gas.mechanism.species))
+        for _ in 1:1
+            Tc = (rand(300.0:3000.0)) + 0im
+            Pc = (rand(0.5Apophis.Pa:2Apophis.Pa)) + 0im
+            Yc = (rnd / sum(rnd)) .+ 0im
+            
+            T, P, Y = real(Tc), real(Pc), real(Yc)
+            TPY!(real_gas, T, P, Y)
+            TPY!(complex_gas, Tc, Pc, Yc)
+            check_derivatives(real_gas, complex_gas)
+        end
+    end
+end
