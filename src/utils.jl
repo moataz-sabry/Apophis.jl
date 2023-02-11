@@ -1,5 +1,5 @@
 export 
-    Gas, Species, species, Reaction, reactions, TPC!, TρC!, TPY!, TPX!, TρY!, TρX!, update, temperature, pressure, density, mass_fractions, molar_fractions, mass_fractions,
+    Gas, Species, species, Reaction, reactions, reaction, TPC!, TρC!, TPY!, TPX!, TρY!, TρX!, update, temperature, pressure, density, mass_fractions, molar_fractions, mass_fractions,
     molecular_weights, production_rates, heat_capacities_pressure, average_heat_capacity_pressure, heat_capacities_volume, average_heat_capacity_volume,
     enthalpies, internal_energies, entropies, forward_rates, reverse_rates, progress_rates, stoichiometry_matrix
 
