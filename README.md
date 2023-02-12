@@ -55,6 +55,11 @@ production_rates(gas) # ω̇ [kmol/(m³⋅s)]
   0.0
   
 ```
+## To-Do
+- ~~Change default units to SI~~
+- Add routines for other reaction auxillary parameters
+- Correctly implement pressure-dependant reactions
+- Implement diffusion routines
 
 ## References
 - [Chemkin User Manual](https://www3.nd.edu/~powers/ame.60636/chemkin2000.pdf)
