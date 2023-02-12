@@ -4,8 +4,11 @@ struct Arrhenius{N<:Number} ## [A] := M^(∑νᵣ - 1) ⋅ s^-1; where M = cm^3 
     E::N
 end
 
-Arrhenius() = nothing
-Arrhenius(itr) = Arrhenius(itr...)
+function Arrhenius(itr; order=1)
+    isempty(itr) && return nothing
+    A, β, E = itr
+    return Arrhenius(A * rate_units(order), β, E)
+end
 
 ((; A, β, E)::Arrhenius{N})(T::N) where {N<:Number} = A * T^β * exp(-E * inv(Rc * T))
 (arrhenius::Arrhenius{N})(::Val{:dg}, T::N) where {N<:Number} = gradient(arrhenius -> arrhenius(T), arrhenius) |> only
@@ -27,7 +30,7 @@ struct Plog{N<:Number}
     arrhenius::Vector{Arrhenius{N}}
 end
 
-Plog(itr...) = isempty(first(itr)) ? nothing : Plog(first(itr), Arrhenius{Float64}[Arrhenius(p) for p in zip(rest(itr, 2)...)])
+Plog(itr...; order = 1) = isempty(first(itr)) ? nothing : Plog(first(itr), Arrhenius{Float64}[Arrhenius(p; order) for p in zip(rest(itr, 2)...)])
 
 function isin(p::N, x::Vector{N}) where {N<:Number}
     for i in eachindex(x)
