@@ -1,7 +1,7 @@
 ########################################################################  Species  ########################################################################
 
 function test_species_enthalpies(gas_Apophis, gas_Cantera)
-    species_Apophis_enthalpies = enthalpies(gas_Apophis; in=u"J/kmol")
+    species_Apophis_enthalpies = enthalpies(gas_Apophis)
     species_Cantera_enthalpies = gas_Cantera.partial_molar_enthalpies
     for k in eachindex(species_Apophis_enthalpies)
         try 
@@ -14,7 +14,7 @@ function test_species_enthalpies(gas_Apophis, gas_Cantera)
 end
 
 function test_species_entropies(gas_Apophis, gas_Cantera) ## gas_Cantera.partial_molar_entropies; Apparently, only for 300K
-    species_Apophis_entropies = entropies(gas_Apophis; in=u"J/(kmol*K)")
+    species_Apophis_entropies = entropies(gas_Apophis)
     for k in eachindex(species_Apophis_entropies)
         species_Cantera_entropy = gas_Cantera.species(k-1).thermo.s(gas_Cantera.T)
         try 
@@ -27,7 +27,7 @@ function test_species_entropies(gas_Apophis, gas_Cantera) ## gas_Cantera.partial
 end
 
 function test_species_heat_capacities_pressure(gas_Apophis, gas_Cantera)
-    species_Apophis_heat_capacity_pressure = heat_capacities_pressure(gas_Apophis; in=u"J/(kmol*K)")
+    species_Apophis_heat_capacity_pressure = heat_capacities_pressure(gas_Apophis)
     species_Cantera_heat_capacity_pressure = gas_Cantera.partial_molar_cp
     for k in eachindex(species_Apophis_heat_capacity_pressure)
         try
@@ -40,7 +40,7 @@ function test_species_heat_capacities_pressure(gas_Apophis, gas_Cantera)
 end
 
 function test_species_production_rates(gas_Apophis, gas_Cantera)
-    species_production_rates_Apophis = production_rates(gas_Apophis, in=u"kmol/m^3/s")
+    species_production_rates_Apophis = production_rates(gas_Apophis)
     species_production_rates_Cantera = gas_Cantera.net_production_rates
     for k in eachindex(species_production_rates_Apophis)
         try
@@ -58,20 +58,19 @@ function test_equilibrium_constants(gas_Apophis, gas_Cantera)
     reaction_equilibrium_constants = gas_Cantera.equilibrium_constants
     for i in eachindex(reaction_equilibrium_constants)
         reaction_equilibrium_constant_Cantera = reaction_equilibrium_constants[i]
-        reaction_Apophis = reaction(gas_Apophis, i)
-        ∑v = reaction_Apophis.reaction_order
-
-        reaction_equilibrium_constant_Apophis = Apophis.equilibrium_constants(reaction_Apophis, gas_Cantera.T) * ustrip(uparse("(kmol/m^3)^$∑v/s"), 1uparse("(mol/cm^3)^$∑v/s"))
+        reaction_equilibrium_constant_Apophis = Apophis.equilibrium_constants(Apophis.reaction(gas_Apophis, i), gas_Cantera.T)
         @test reaction_equilibrium_constant_Apophis ≈ reaction_equilibrium_constant_Cantera
     end
 end
 
 function test_total_molar_concentrations(gas_Apophis, gas_Cantera)
-    for (i, v) in enumerate(gas_Cantera.third_body_concentrations)
-        if !isnan(v)
-            reaction_Apophis = reaction(gas_Apophis, i)
-            M = Apophis.total_molar_concentration(gas_Apophis.state.C, reaction_Apophis.enhancement_factors) * ustrip(uparse("kmol/m^3"), 1uparse("mol/cm^3"))
-            @test M ≈ v rtol = 0.0001
+    reactions_third_body_concentrations_Cantera = gas_Cantera.third_body_concentrations
+    for i in eachindex(gas_Cantera.third_body_concentrations)
+        reaction_third_body_concentrations_Cantera = reactions_third_body_concentrations_Cantera[i]
+        reaction_Apophis = Apophis.reaction(gas_Apophis, i)
+        if !isnan(reaction_third_body_concentrations_Cantera)
+            reaction_third_body_concentrations_Apophis = Apophis.total_molar_concentration(gas_Apophis.state.C, reaction_Apophis.enhancement_factors)
+            @test reaction_third_body_concentrations_Apophis ≈ reaction_third_body_concentrations_Cantera
         end
     end
 end
@@ -144,7 +143,6 @@ end
 function test_reaction_values(gas_Apophis, gas_Cantera)
     @testset "– Equilibrium Constant" test_equilibrium_constants(gas_Apophis, gas_Cantera)
     @testset "– Total Molar Concentrations" test_total_molar_concentrations(gas_Apophis, gas_Cantera)
-
 end
 
 function test_values(mech::Union{String, Symbol})

@@ -143,37 +143,38 @@ end
 test_reaction_reactants(gas_Apophis, gas_Cantera) = foreach(_test_reaction_reactants, reactions(gas_Apophis), gas_Cantera.reactions())
 test_reaction_products(gas_Apophis, gas_Cantera) = foreach(_test_reaction_products, reactions(gas_Apophis), gas_Cantera.reactions())
 
-function test_reaction_rates(reaction_Apophis, reaction_Cantera)
-    ∑νᵣ = sum(v -> last(v) |> abs, reaction_Apophis.reactants)# + 1 #??
-    unitify = 10.0^3(1-∑νᵣ)
+function _test_rate_parameters(reaction_Apophis, reaction_Cantera)
     if reaction_Apophis isa Apophis.FallOffReaction
-        #@test reaction_Apophis.high_pressure_parameters.A * unitify *10^-3 ≈ reaction_Cantera.rate.high_rate.pre_exponential_factor
-        @test reaction_Apophis.high_pressure_parameters.β == reaction_Cantera.rate.high_rate.temperature_exponent
+        @test reaction_Apophis.high_pressure_parameters.A ≈ reaction_Cantera.rate.high_rate.pre_exponential_factor
+        @test reaction_Apophis.high_pressure_parameters.β ≈ reaction_Cantera.rate.high_rate.temperature_exponent
         @test reaction_Apophis.high_pressure_parameters.E * 4184 ≈ reaction_Cantera.rate.high_rate.activation_energy ## cal to joule
         
-        #@test reaction_Apophis.low_pressure_parameters.A * unitify *10^-3 ≈ reaction_Cantera.rate.low_rate.pre_exponential_factor
-        @test reaction_Apophis.low_pressure_parameters.β == reaction_Cantera.rate.low_rate.temperature_exponent
+        @test reaction_Apophis.low_pressure_parameters.A ≈ reaction_Cantera.rate.low_rate.pre_exponential_factor
+        @test reaction_Apophis.low_pressure_parameters.β ≈ reaction_Cantera.rate.low_rate.temperature_exponent
         @test reaction_Apophis.low_pressure_parameters.E * 4184 ≈ reaction_Cantera.rate.low_rate.activation_energy
-    else reaction_Apophis isa Apophis.ElementaryReaction
-        #@test reaction_Apophis.forward_rate_parameters.A * unitify ≈ reaction_Cantera.rate.pre_exponential_factor
-        @test reaction_Apophis.forward_rate_parameters.β == reaction_Cantera.rate.temperature_exponent
+    else
+        @test reaction_Apophis.forward_rate_parameters.A ≈ reaction_Cantera.rate.pre_exponential_factor
+        @test reaction_Apophis.forward_rate_parameters.β ≈ reaction_Cantera.rate.temperature_exponent
         @test reaction_Apophis.forward_rate_parameters.E * 4184 ≈ reaction_Cantera.rate.activation_energy
     end
 end
 
-function test_reaction_troe(reaction_Apophis, reaction_Cantera)
+test_rate_parameters(gas_Apophis, gas_Cantera) = foreach(_test_rate_parameters, reactions(gas_Apophis), gas_Cantera.reactions())
+
+function _test_troe_parameters(reaction_Apophis, reaction_Cantera)
     if reaction_Apophis isa Apophis.FallOffReaction && !isnothing(reaction_Apophis.troe_parameters)
-        #@test reaction_Apophis.high_pressure_parameters.A * unitify *10^-3 ≈ reaction_Cantera.rate.high_rate.pre_exponential_factor
-        @test reaction_Apophis.troe_parameters.a ≈ reaction_Cantera.rate.falloff_coeffs[1] ## cal to joule
-        @test reaction_Apophis.troe_parameters.T₃ ≈ reaction_Cantera.rate.falloff_coeffs[2] ## cal to joule
-        @test reaction_Apophis.troe_parameters.T₁ ≈ reaction_Cantera.rate.falloff_coeffs[3] ## cal to joule
+        @test reaction_Apophis.troe_parameters.a ≈ reaction_Cantera.rate.falloff_coeffs[1]
+        @test reaction_Apophis.troe_parameters.T₃ ≈ reaction_Cantera.rate.falloff_coeffs[2]
+        @test reaction_Apophis.troe_parameters.T₁ ≈ reaction_Cantera.rate.falloff_coeffs[3]
         if iszero(reaction_Apophis.troe_parameters.T₂)
             @test length(reaction_Cantera.rate.falloff_coeffs) == 3
         else
-            @test reaction_Apophis.troe_parameters.T₂ ≈ reaction_Cantera.rate.falloff_coeffs[4] ## cal to joule
+            @test reaction_Apophis.troe_parameters.T₂ ≈ reaction_Cantera.rate.falloff_coeffs[4]
         end
     end
 end
+
+test_troe_parameters(gas_Apophis, gas_Cantera) = foreach(_test_troe_parameters, reactions(gas_Apophis), gas_Cantera.reactions())
 
 function test_species_reader(gas_Apophis, gas_Cantera)
     @testset "– # Species" test_total_species(gas_Apophis, gas_Cantera)
@@ -192,6 +193,8 @@ function test_reactions_reader(gas_Apophis, gas_Cantera)
     @testset "– Type" test_reaction_type(gas_Apophis, gas_Cantera)
     @testset "– Reactants" test_reaction_reactants(gas_Apophis, gas_Cantera)
     @testset "– Products" test_reaction_products(gas_Apophis, gas_Cantera)
+    @testset "– Rate Params." test_rate_parameters(gas_Apophis, gas_Cantera)
+    @testset "– Troe Params." test_troe_parameters(gas_Apophis, gas_Cantera)
 end
 
 function test_reader(mech::Union{String, Symbol})
