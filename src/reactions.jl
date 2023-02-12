@@ -4,8 +4,12 @@ struct Arrhenius{N<:Number} ## [A] := M^(∑νᵣ - 1) ⋅ s^-1; where M = cm^3 
     E::N
 end
 
-Arrhenius() = nothing
-Arrhenius(itr) = Arrhenius(itr...)
+function Arrhenius(itr; order=1, mechunits = chemkin_default_units)
+    activation_energy_unit, length_unit, quantity_unit = (mechunits[k] for k in ("activation-energy", "length", "quantity"))
+    isempty(itr) && return nothing
+    A, β, E = itr
+    return Arrhenius(unitfy_rate(A, order, length_unit, quantity_unit), β, unitfy_activation_energy(E, activation_energy_unit))
+end
 
 ((; A, β, E)::Arrhenius{N})(T::N) where {N<:Number} = A * T^β * exp(-E * inv(Rc * T))
 (arrhenius::Arrhenius{N})(::Val{:dg}, T::N) where {N<:Number} = gradient(arrhenius -> arrhenius(T), arrhenius) |> only
@@ -27,7 +31,7 @@ struct Plog{N<:Number}
     arrhenius::Vector{Arrhenius{N}}
 end
 
-Plog(itr...) = isempty(first(itr)) ? nothing : Plog(first(itr), Arrhenius{Float64}[Arrhenius(p) for p in zip(rest(itr, 2)...)])
+Plog(itr...; order = 1) = isempty(first(itr)) ? nothing : Plog(first(itr), Arrhenius{Float64}[Arrhenius(p; order) for p in zip(rest(itr, 2)...)])
 
 function isin(p::N, x::Vector{N}) where {N<:Number}
     for i in eachindex(x)
