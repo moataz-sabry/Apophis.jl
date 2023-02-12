@@ -83,13 +83,10 @@ end
 
 test_species_coeffs(gas_Apophis, gas_Cantera) = foreach(_test_species_coeffs, species(gas_Apophis), gas_Cantera.species())
 
-# np = species_Apophis.nasa_polynomial
-# Tₘ = isequal(np.A, np.a) ? np.Tmax : np.Tₘ ## Because Cantera works like that, if a species has same coefficients for high and low intervals.
-# @test Tₘ == species_Cantera.thermo.coeffs[1]
-
 function _test_species_mid_temp(species_Apophis, species_Cantera)
-    species_mid_temp_Apophis = species_Apophis.nasa_polynomial.Tₘ
-    species_mid_temp_Cantera = species_Cantera.thermo.coeffs[1]
+    np = species_Apophis.nasa_polynomial
+    species_mid_temp_Apophis = isequal(np.A, np.a) ? np.Tmax : np.Tₘ ## Because Cantera works like that, if a species has same coefficients for high and low intervals.
+    species_mid_temp_Cantera = species_Cantera.thermo.coeffs[1] 
     try
         @test species_mid_temp_Apophis == species_mid_temp_Cantera
     catch e

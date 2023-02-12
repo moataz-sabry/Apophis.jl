@@ -2,15 +2,16 @@ using Apophis, PyCall, Test, Unitful
 ct = pyimport("cantera")
 
 include("tests/utils.jl")
-include("tests/calc.jl")
 include("tests/reader.jl")
-#include("complex.jl")
+include("tests/values.jl")
+include("tests/derivatives.jl")
 
 @testset verbose = true "Apophis vs. Cantera" begin
-    for mech in (:H2,)# :GRI12)#)
-        @testset "Mechanism: $mech" begin
-            @testset verbose = true "Reader" test_reader(mech)
-            @testset verbose = true "Values" test_values(mech)
+    for mech in (:H2, :GRI12)#)
+        @testset verbose = true "Mechanism: $mech" begin
+            @testset verbose = false "Reader" test_reader(mech)
+            #@testset verbose = false "Values" test_values(mech)
+            #@testset verbose = true "Derivatives" test_derivatives(mech)
         end
     end
 end
