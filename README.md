@@ -45,7 +45,7 @@ production_rates(gas) # ω̇ [mol/(cm³⋅s)]
   
 ```
 ## To-Do
-- Change default units to SI
+- ~~Change default units to SI~~
 - Add routines for other reaction auxillary parameters
 - Correctly implement pressure-dependant reactions
 - Implement diffusion routines

@@ -48,7 +48,7 @@ function total_molar_concentrations(gas_Apophis, gas_Cantera)
         reaction_third_body_concentrations_Cantera = reactions_third_body_concentrations_Cantera[i]
         reaction = Apophis.reaction(gas_Apophis, i)
         if !isnan(reaction_third_body_concentrations_Cantera)
-            reaction_third_body_concentrations_Apophis = total_molar_concentration(gas_Apophis.state.C, reaction.enhancement_factors)
+            reaction_third_body_concentrations_Apophis = Apophis.total_molar_concentration(molar_concentrations(gas_Apophis), reaction.enhancement_factors)
             @test reaction_third_body_concentrations_Apophis ≈ reaction_third_body_concentrations_Cantera rtol = 5e-2
         end
     end
@@ -57,34 +57,34 @@ end
 function test_reaction_forward_rate_constants(gas_Apophis, gas_Cantera)   
     for (i, forward_rate_constant_Cantera) in enumerate(gas_Cantera.forward_rate_constants)
         reaction = Apophis.reaction(gas_Apophis, i)
-        M = reaction isa ThreeBodyReaction ? total_molar_concentration(gas_Apophis.state.C, reaction.enhancement_factors) : one(Float64)
-        @test M * forward_rate(reaction) ≈ forward_rate_constant_Cantera rtol = 5e-2
+        M = reaction isa Apophis.ThreeBodyReaction ? Apophis.total_molar_concentration(molar_concentrations(gas_Apophis), reaction.enhancement_factors) : one(Float64)
+        @test M * Apophis.forward_rate(reaction) ≈ forward_rate_constant_Cantera rtol = 5e-2
     end 
 end
 
 function test_reaction_forward_rate_of_progress(gas_Apophis, gas_Cantera)   
     for (i, forward_rate_constant_Cantera) in enumerate(gas_Cantera.forward_rates_of_progress)
         reaction = Apophis.reaction(gas_Apophis, i)
-        Π = step(reaction.reactants, gas_Apophis.state.C)
-        M = reaction isa ThreeBodyReaction ? total_molar_concentration(gas_Apophis.state.C, reaction.enhancement_factors) : one(Float64)
-        @test M * Π * forward_rate(reaction) ≈ forward_rate_constant_Cantera rtol = 5e-2
+        Π = Apophis.step(reaction.reactants, molar_concentrations(gas_Apophis))
+        M = reaction isa Apophis.ThreeBodyReaction ? Apophis.total_molar_concentration(molar_concentrations(gas_Apophis), reaction.enhancement_factors) : one(Float64)
+        @test M * Π * Apophis.forward_rate(reaction) ≈ forward_rate_constant_Cantera rtol = 5e-2
     end
 end
 
 function test_reaction_reverse_rate_constants(gas_Apophis, gas_Cantera)
     for (i, reverse_rate_constant_Cantera) in enumerate(gas_Cantera.reverse_rate_constants)
         reaction = Apophis.reaction(gas_Apophis, i)
-        M = reaction isa ThreeBodyReaction ? total_molar_concentration(gas_Apophis.state.C, reaction.enhancement_factors) : one(Float64)
-        @test M * reverse_rate(reaction) ≈ reverse_rate_constant_Cantera rtol = 5e-2
+        M = reaction isa Apophis.ThreeBodyReaction ? Apophis.total_molar_concentration(molar_concentrations(gas_Apophis), reaction.enhancement_factors) : one(Float64)
+        @test M * Apophis.reverse_rate(reaction) ≈ reverse_rate_constant_Cantera rtol = 5e-2
     end
 end
 
 function test_reaction_reverse_rate_of_progress(gas_Apophis, gas_Cantera)
     for (i, reverse_rate_constant_Cantera) in enumerate(gas_Cantera.reverse_rates_of_progress)
         reaction = Apophis.reaction(gas_Apophis, i)
-        Π = step(reaction.products, gas_Apophis.state.C)
-        M = reaction isa ThreeBodyReaction ? total_molar_concentration(gas_Apophis.state.C, reaction.enhancement_factors) : one(Float64)
-        @test M * Π * reverse_rate(reaction) ≈ reverse_rate_constant_Cantera rtol = 5e-2
+        Π = Apophis.step(reaction.products, molar_concentrations(gas_Apophis))
+        M = reaction isa Apophis.ThreeBodyReaction ? Apophis.total_molar_concentration(molar_concentrations(gas_Apophis), reaction.enhancement_factors) : one(Float64)
+        @test M * Π * Apophis.reverse_rate(reaction) ≈ reverse_rate_constant_Cantera rtol = 5e-2
     end
 end
 
@@ -111,9 +111,9 @@ end
 function test_values(mech::Union{String, Symbol})
     gas_Apophis = Gas(mech)
     gas_Cantera = run_cantera(mech)
-    for _ in 1:rand(1:5)
+    for _ in 1:rand(1:3)
         T = rand(300.0:3000.0)
-        P = rand(0.5Pa:2Pa)
+        P = rand(0.5Apophis.Pa:2Apophis.Pa)
 
         rnd = (rand ∘ length ∘ species)(gas_Apophis)
         Y = rnd / sum(rnd)

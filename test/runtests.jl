@@ -1,6 +1,3 @@
-import Apophis: Gas, NasaPolynomial, Pa, ThreeBodyReaction, forward_rate, reverse_rate,
-    step, total_molar_concentration
-
 using Apophis
 using PyCall
 using Test
@@ -12,7 +9,7 @@ include("tests/reader.jl")
 include("tests/values.jl")
 include("tests/derivatives.jl")
 
-@testset verbose = true "Apophis vs. Cantera" begin
+@testset verbose = true "Apophis" begin
     for mech in (:H2, :GRI12, :GRI2, :GRI3, :ITV)
         @testset verbose = true "Mechanism: $mech" begin
             @testset "Reader" test_reader(mech)

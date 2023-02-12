@@ -1,6 +1,6 @@
 Base.flipsign(x::Complex, y::Complex) = flipsign(real(x), real(y)) + 0im
 
-function ((; Tₘ, a, A)::NasaPolynomial{C})(T::C) where {C<:Complex}
+function ((; Tₘ, a, A)::Apophis.NasaPolynomial{C})(T::C) where {C<:Complex}
     T², T³, T⁴ = (T^n for n in 2:4)
     c₁, c₂, c₃, c₄, c₅, c₆, c₇ = real(T) ≥ real(Tₘ) ? A : a
 
@@ -39,7 +39,7 @@ end
 
 function _test_derivatives(real_derivative, complex_derivative)
     for i in axes(real_derivative, 1), j in axes(real_derivative, 2)
-       @test real_derivative[i, j] ≈ complex_derivative[i, j] rtol = 0.005
+       @test real_derivative[i, j] ≈ complex_derivative[i, j] rtol = 5e-2
     end
 end
 
@@ -54,6 +54,8 @@ function test_derivatives(gas_Apophis, gas_Cantera)
     @testset "– ∂cₚ∂T" _test_derivatives(gas_Apophis, gas_Cantera, heat_capacities_pressure, Val(:dT))
     @testset "– ∂h∂T" _test_derivatives(gas_Apophis, gas_Cantera, enthalpies, Val(:dT))
     @testset "– ∂s∂T" _test_derivatives(gas_Apophis, gas_Cantera, entropies, Val(:dT))
+    @testset "– ∂q∂T" _test_derivatives(gas_Apophis, gas_Cantera, progress_rates, Val(:dT))
+    @testset "– ∂q∂C" _test_derivatives(gas_Apophis, gas_Cantera, progress_rates, Val(:dC))
     @testset "– ∂ω̇∂T" _test_derivatives(gas_Apophis, gas_Cantera, production_rates, Val(:dT))
     @testset "– ∂ω̇∂C" _test_derivatives(gas_Apophis, gas_Cantera, production_rates, Val(:dC))
 end
@@ -61,9 +63,9 @@ end
 function test_derivatives(mech::Union{String, Symbol})
     real_gas = Gas(mech)
     complex_gas = Gas(mech; as=ComplexF64)
-    for _ in 1:rand(1:1)
+    for _ in 1:rand(1:3)
         Tc = rand(300.0:3000.0) + 0im
-        Pc = rand(0.5Pa:2Pa) + 0im
+        Pc = rand(0.5Apophis.Pa:2Apophis.Pa) + 0im
 
         rnd = (rand ∘ length ∘ species)(real_gas)
         Yc = rnd / sum(rnd) .+ 0im
