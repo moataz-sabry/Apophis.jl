@@ -258,17 +258,17 @@ Finds the kinetic parameters of a `FallOffReaction` in the given reaction `data`
 function find_kinetics(::Type{FallOffReaction}, data::AbstractString, species_list::Vector{Species{N}}, components::NTuple{2, Vector{<:Pair}}) where {N<:Number}
     enhancements = find_enhancements(data, species_list, components)
     forward_order, reverse_order = Tuple(order(p) for p in components)
-    high_parameters = Arrhenius(parse(N, p.match) for p in eachmatch(regextionary[:high], data); order = forward_order + 1)
+    high_parameters = Arrhenius(parse(N, p.match) for p in eachmatch(regextionary[:high], data); order = forward_order)
     low_parameters = Arrhenius(parse(N, p.match) for p in eachmatch(regextionary[:low], data); order = forward_order + 1)
     troe_parameters = Troe(parse(N, p.match) for p in eachmatch(regextionary[:troe], data))
-    reverse_paramters = Arrhenius(parse(N, p.match) for p in eachmatch(regextionary[:rev], data); order = reverse_order + 1)
+    reverse_paramters = Arrhenius(parse(N, p.match) for p in eachmatch(regextionary[:rev], data); order = reverse_order)
     return high_parameters, low_parameters, troe_parameters, reverse_paramters, enhancements
 end
 
 function find_kinetics(::Type{FallOffReaction}, reaction::Dict, species::Vector{Species{N}}, components::NTuple{2, Vector{<:Pair}}) where {N<:Number}
     enhancements = find_enhancements(reaction, species, components)
     forward_order = first(components) |> order
-    high_parameters = reaction["high-P-rate-constant"] |> Fix2(get_arrhenius, forward_order + 1)
+    high_parameters = reaction["high-P-rate-constant"] |> Fix2(get_arrhenius, forward_order)
     low_parameters = reaction["low-P-rate-constant"] |> Fix2(get_arrhenius, forward_order + 1)
     troe_parameters = get(reaction, "Troe", nothing) |> troe -> isnothing(troe) ? Troe() : Troe(get(troe, p, nothing) for p in ("A", "T3", "T1", "T2"))
     return high_parameters, low_parameters, troe_parameters, nothing, enhancements
