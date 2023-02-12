@@ -1,5 +1,3 @@
-using Apophis: Pa, ThreeBodyReaction, total_molar_concentration, forward_rate, reverse_rate, step
-
 ########################################################################  Species  ########################################################################
 
 function test_species_enthalpies(gas_Apophis, gas_Cantera)
@@ -60,7 +58,7 @@ function test_reaction_forward_rate_constants(gas_Apophis, gas_Cantera)
     for (i, forward_rate_constant_Cantera) in enumerate(gas_Cantera.forward_rate_constants)
         reaction = Apophis.reaction(gas_Apophis, i)
         M = reaction isa ThreeBodyReaction ? total_molar_concentration(gas_Apophis.state.C, reaction.enhancement_factors) : one(Float64)
-        @test M * forward_rate(reaction, Val(:val)) ≈ forward_rate_constant_Cantera rtol = 5e-2
+        @test M * forward_rate(reaction) ≈ forward_rate_constant_Cantera rtol = 5e-2
     end 
 end
 
@@ -69,7 +67,7 @@ function test_reaction_forward_rate_of_progress(gas_Apophis, gas_Cantera)
         reaction = Apophis.reaction(gas_Apophis, i)
         Π = step(reaction.reactants, gas_Apophis.state.C)
         M = reaction isa ThreeBodyReaction ? total_molar_concentration(gas_Apophis.state.C, reaction.enhancement_factors) : one(Float64)
-        @test M * Π * forward_rate(reaction, Val(:val)) ≈ forward_rate_constant_Cantera rtol = 5e-2
+        @test M * Π * forward_rate(reaction) ≈ forward_rate_constant_Cantera rtol = 5e-2
     end
 end
 
@@ -77,7 +75,7 @@ function test_reaction_reverse_rate_constants(gas_Apophis, gas_Cantera)
     for (i, reverse_rate_constant_Cantera) in enumerate(gas_Cantera.reverse_rate_constants)
         reaction = Apophis.reaction(gas_Apophis, i)
         M = reaction isa ThreeBodyReaction ? total_molar_concentration(gas_Apophis.state.C, reaction.enhancement_factors) : one(Float64)
-        @test M * reverse_rate(reaction, Val(:val)) ≈ reverse_rate_constant_Cantera rtol = 5e-2
+        @test M * reverse_rate(reaction) ≈ reverse_rate_constant_Cantera rtol = 5e-2
     end
 end
 
@@ -86,7 +84,7 @@ function test_reaction_reverse_rate_of_progress(gas_Apophis, gas_Cantera)
         reaction = Apophis.reaction(gas_Apophis, i)
         Π = step(reaction.products, gas_Apophis.state.C)
         M = reaction isa ThreeBodyReaction ? total_molar_concentration(gas_Apophis.state.C, reaction.enhancement_factors) : one(Float64)
-        @test M * Π * reverse_rate(reaction, Val(:val)) ≈ reverse_rate_constant_Cantera rtol = 5e-2
+        @test M * Π * reverse_rate(reaction) ≈ reverse_rate_constant_Cantera rtol = 5e-2
     end
 end
 

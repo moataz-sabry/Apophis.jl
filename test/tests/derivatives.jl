@@ -1,4 +1,6 @@
-function ((; Tₘ, a, A)::Apophis.NasaPolynomial{C})(T::C) where {C<:Complex}
+Base.flipsign(x::Complex, y::Complex) = flipsign(real(x), real(y)) + 0im
+
+function ((; Tₘ, a, A)::NasaPolynomial{C})(T::C) where {C<:Complex}
     T², T³, T⁴ = (T^n for n in 2:4)
     c₁, c₂, c₃, c₄, c₅, c₆, c₇ = real(T) ≥ real(Tₘ) ? A : a
 
@@ -8,80 +10,67 @@ function ((; Tₘ, a, A)::Apophis.NasaPolynomial{C})(T::C) where {C<:Complex}
     return cₚ, h, s
 end
 
-function perturbe(gas::Gas{<:Complex}, output::Function, input::String, ε=1e-200) ## this should work as of now, as production rates only depend on T and C 
-    input_symbol = last(input) |> Symbol
-    input_length = getfield(gas.state, input_symbol) |> length
-    output_length = output(gas) |> length
+function perturbe(gas::Gas{<:Complex}, output_func::Function, ::Val{:dT}, ε=1e-200) ## this should work as of now, as production rates only depend on T and C
+    output = output_func(gas)
+    derivative = zero(output)
 
-    derivative = zeros(output_length, input_length)
-    if Symbol(input) == :dT
-        gas.state.T += (ε)im
-        TPC!(gas, gas.state.T, gas.state.P, gas.state.C)
-        update(gas)
-        derivative[:, 1] = imag(output(gas)) / ε
-        gas.state.T -= (ε)im
-        TPC!(gas, gas.state.T, gas.state.P, gas.state.C)
-    else
-        for i in Base.OneTo(input_length)
-            gas.state.C[i] += (ε)im
-            TPC!(gas, gas.state.T, gas.state.P, gas.state.C)
-            update(gas)
-            derivative[:, i] = imag(output(gas)) / ε
-            gas.state.C[i] -= (ε)im
-            TPC!(gas, gas.state.T, gas.state.P, gas.state.C)
-        end
-    end
-    #println(derivative)
+    gas.state.T += (ε)im
+    TPC!(gas, gas.state.T, gas.state.P, gas.state.C) |> update
+    derivative[:, 1] = imag(output) / ε
+
+    gas.state.T -= (ε)im
+    TPC!(gas, gas.state.T, gas.state.P, gas.state.C)
     return derivative
 end
 
-function test_derivatives(real_derivative, complex_derivative)
+function perturbe(gas::Gas{<:Complex}, output_func::Function, ::Val{:dC}, ε=1e-200) ## this should work as of now, as production rates only depend on T and C
+    input = gas.state.C
+    output = output_func(gas)
+    derivative = zeros(length(output), length(input))
+    for i in eachindex(input)
+        input[i] += (ε)im
+        TPC!(gas, gas.state.T, gas.state.P, gas.state.C) |> update
+        derivative[:, i] = imag(output) / ε
+        input[i] -= (ε)im
+        TPC!(gas, gas.state.T, gas.state.P, gas.state.C)
+    end
+    return derivative
+end
+
+function _test_derivatives(real_derivative, complex_derivative)
     for i in axes(real_derivative, 1), j in axes(real_derivative, 2)
-       @test complex_derivative[i, j] ≈ real_derivative[i, j] rtol = 0.005
+       @test real_derivative[i, j] ≈ complex_derivative[i, j] rtol = 0.005
     end
 end
 
-function check_derivatives(real_gas, complex_gas, ε=1e-200)
-    for output in (Apophis.progress_rates,)#, Apophis.progress_rates)
-        for input in ("dT", "dC")
-            sder = Symbol(input)
-            update(real_gas, sder)
-            real_derivative = output(real_gas, sder)
-            complex_derivative = perturbe(complex_gas, output, input, ε)
-            @testset "$output w.r.t $input" test_derivatives(real_derivative, complex_derivative)
-        end
-    end
+function _test_derivatives(real_gas, complex_gas, output_func::Function, v::Val{D}, ε=1e-200) where {D}
+    update(real_gas, D)
+    real_derivative = output_func(real_gas, v)
+    complex_derivative = perturbe(complex_gas, output_func, v, ε)
+    _test_derivatives(real_derivative, complex_derivative)
 end
 
-function test_production_rates_dT(gas_Apophis, gas_Cantera)
-    @testset verbose = false "production rates: dT" begin
-        for (i, v) in enumerate(gas_Cantera.net_test_production_rates_ddT)
-            @test isapprox(production_rate(species(gas_Apophis, i), :dT), v, rtol = 0.005)
-        end
-    end
+function test_derivatives(gas_Apophis, gas_Cantera)
+    @testset "– ∂cₚ∂T" _test_derivatives(gas_Apophis, gas_Cantera, heat_capacities_pressure, Val(:dT))
+    @testset "– ∂h∂T" _test_derivatives(gas_Apophis, gas_Cantera, enthalpies, Val(:dT))
+    @testset "– ∂s∂T" _test_derivatives(gas_Apophis, gas_Cantera, entropies, Val(:dT))
+    @testset "– ∂ω̇∂T" _test_derivatives(gas_Apophis, gas_Cantera, production_rates, Val(:dT))
+    @testset "– ∂ω̇∂C" _test_derivatives(gas_Apophis, gas_Cantera, production_rates, Val(:dC))
 end
 
-function test_production_rates_dC(gas_Apophis, gas_Cantera)
-    @testset verbose = false "production rates: dC" begin
-        dC = gas_Cantera.net_test_production_rates_ddC
-        for k in axes(dC, 1), j in axes(dC, 2)
-            @test isapprox(production_rate(species(gas_Apophis, i), :dC)[i, j], dC[i, j], rtol = 0.005)
-        end
-    end
-end
-
-function test_derivatives(mech::Symbol)
+function test_derivatives(mech::Union{String, Symbol})
     real_gas = Gas(mech)
     complex_gas = Gas(mech; as=ComplexF64)
-    rnd = rand(length(real_gas.mechanism.species))
-    for _ in 1:1
-        Tc = (rand(300.0:3000.0)) + 0im
-        Pc = (rand(0.5Apophis.Pa:2Apophis.Pa)) + 0im
-        Yc = (rnd / sum(rnd)) .+ 0im
+    for _ in 1:rand(1:1)
+        Tc = rand(300.0:3000.0) + 0im
+        Pc = rand(0.5Pa:2Pa) + 0im
+
+        rnd = (rand ∘ length ∘ species)(real_gas)
+        Yc = rnd / sum(rnd) .+ 0im
         
         T, P, Y = real(Tc), real(Pc), real(Yc)
         TPY!(real_gas, T, P, Y)
         TPY!(complex_gas, Tc, Pc, Yc)
-        check_derivatives(real_gas, complex_gas)
+        test_derivatives(real_gas, complex_gas)
     end
 end
