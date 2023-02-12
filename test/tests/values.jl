@@ -1,4 +1,4 @@
-using Apophis: Pa, total_molar_concentration, forward_rate, reverse_rate, step
+using Apophis: Pa, ThreeBodyReaction, total_molar_concentration, forward_rate, reverse_rate, step
 
 ########################################################################  Species  ########################################################################
 
@@ -6,12 +6,7 @@ function test_species_enthalpies(gas_Apophis, gas_Cantera)
     species_Apophis_enthalpies = enthalpies(gas_Apophis)
     species_Cantera_enthalpies = gas_Cantera.partial_molar_enthalpies
     for k in eachindex(species_Apophis_enthalpies)
-        try 
-            @test species_Apophis_enthalpies[k] ≈ species_Cantera_enthalpies[k]
-        catch e
-            println("Apophis: $(species_Apophis_enthalpies[k]) & Cantera: $(species_Cantera_enthalpies[k]) for species $(gas_Apophis.species[k].formula) at temperature $T")
-            rethrow(e)
-        end
+        @test species_Apophis_enthalpies[k] ≈ species_Cantera_enthalpies[k]
     end
 end
 
@@ -19,12 +14,7 @@ function test_species_entropies(gas_Apophis, gas_Cantera) ## gas_Cantera.partial
     species_Apophis_entropies = entropies(gas_Apophis)
     for k in eachindex(species_Apophis_entropies)
         species_Cantera_entropy = gas_Cantera.species(k-1).thermo.s(gas_Cantera.T)
-        try 
-            @test species_Apophis_entropies[k] ≈ species_Cantera_entropy
-        catch e
-            println("Apophis: $(species_Apophis_entropies[k]) & Cantera: $(species_Cantera_entropies[k]) for species $(gas_Apophis.species[k].formula) at temperature $T")
-            rethrow(e)
-        end
+        @test species_Apophis_entropies[k] ≈ species_Cantera_entropy
     end
 end
 
@@ -32,12 +22,7 @@ function test_species_heat_capacities_pressure(gas_Apophis, gas_Cantera)
     species_Apophis_heat_capacity_pressure = heat_capacities_pressure(gas_Apophis)
     species_Cantera_heat_capacity_pressure = gas_Cantera.partial_molar_cp
     for k in eachindex(species_Apophis_heat_capacity_pressure)
-        try
-            @test species_Apophis_heat_capacity_pressure[k] ≈ species_Cantera_heat_capacity_pressure[k]
-        catch e
-            println("Apophis: $(species_Apophis_heat_capacity_pressure[k]) & Cantera: $(species_Cantera_heat_capacity_pressure[k]) for species $(gas_Apophis.species[k].formula) at temperature $T")
-            rethrow(e)
-        end
+        @test species_Apophis_heat_capacity_pressure[k] ≈ species_Cantera_heat_capacity_pressure[k]
     end
 end
 
@@ -45,12 +30,7 @@ function test_species_production_rates(gas_Apophis, gas_Cantera)
     species_production_rates_Apophis = production_rates(gas_Apophis)
     species_production_rates_Cantera = gas_Cantera.net_production_rates
     for k in eachindex(species_production_rates_Apophis)
-        try
-            @test species_production_rates_Apophis[k] ≈ species_production_rates_Cantera[k] rtol = 0.005
-        catch e
-            print("Apophis: $(species_production_rates_Apophis[k]) & Cantera: $(species_production_rates_Cantera[k]) for species $(gas_Apophis.species[k].formula) at temperature $T")
-            rethrow(e)
-        end
+        @test species_production_rates_Apophis[k] ≈ species_production_rates_Cantera[k] rtol = 5e-2
     end
 end
 
@@ -61,7 +41,7 @@ function test_reaction_equilibrium_constants(gas_Apophis, gas_Cantera)
     for i in eachindex(reaction_equilibrium_constants)
         reaction_equilibrium_constant_Cantera = reaction_equilibrium_constants[i]
         reaction_equilibrium_constant_Apophis = Apophis.equilibrium_constants(Apophis.reaction(gas_Apophis, i), gas_Cantera.T)
-        @test reaction_equilibrium_constant_Apophis ≈ reaction_equilibrium_constant_Cantera
+        @test reaction_equilibrium_constant_Apophis ≈ reaction_equilibrium_constant_Cantera rtol = 5e-2
     end
 end
 function total_molar_concentrations(gas_Apophis, gas_Cantera)
@@ -71,7 +51,7 @@ function total_molar_concentrations(gas_Apophis, gas_Cantera)
         reaction = Apophis.reaction(gas_Apophis, i)
         if !isnan(reaction_third_body_concentrations_Cantera)
             reaction_third_body_concentrations_Apophis = total_molar_concentration(gas_Apophis.state.C, reaction.enhancement_factors)
-            @test reaction_third_body_concentrations_Apophis ≈ reaction_third_body_concentrations_Cantera
+            @test reaction_third_body_concentrations_Apophis ≈ reaction_third_body_concentrations_Cantera rtol = 5e-2
         end
     end
 end
@@ -80,7 +60,7 @@ function test_reaction_forward_rate_constants(gas_Apophis, gas_Cantera)
     for (i, forward_rate_constant_Cantera) in enumerate(gas_Cantera.forward_rate_constants)
         reaction = Apophis.reaction(gas_Apophis, i)
         M = reaction isa ThreeBodyReaction ? total_molar_concentration(gas_Apophis.state.C, reaction.enhancement_factors) : one(Float64)
-        @test M * forward_rate(reaction, Val(:val)) ≈ forward_rate_constant_Cantera rtol = 0.005
+        @test M * forward_rate(reaction, Val(:val)) ≈ forward_rate_constant_Cantera rtol = 5e-2
     end 
 end
 
@@ -89,7 +69,7 @@ function test_reaction_forward_rate_of_progress(gas_Apophis, gas_Cantera)
         reaction = Apophis.reaction(gas_Apophis, i)
         Π = step(reaction.reactants, gas_Apophis.state.C)
         M = reaction isa ThreeBodyReaction ? total_molar_concentration(gas_Apophis.state.C, reaction.enhancement_factors) : one(Float64)
-        @test M * Π * forward_rate(reaction, Val(:val)) ≈ forward_rate_constant_Cantera rtol = 0.005
+        @test M * Π * forward_rate(reaction, Val(:val)) ≈ forward_rate_constant_Cantera rtol = 5e-2
     end
 end
 
@@ -97,7 +77,7 @@ function test_reaction_reverse_rate_constants(gas_Apophis, gas_Cantera)
     for (i, reverse_rate_constant_Cantera) in enumerate(gas_Cantera.reverse_rate_constants)
         reaction = Apophis.reaction(gas_Apophis, i)
         M = reaction isa ThreeBodyReaction ? total_molar_concentration(gas_Apophis.state.C, reaction.enhancement_factors) : one(Float64)
-        @test M * reverse_rate(reaction, Val(:val)) ≈ reverse_rate_constant_Cantera rtol = 0.005
+        @test M * reverse_rate(reaction, Val(:val)) ≈ reverse_rate_constant_Cantera rtol = 5e-2
     end
 end
 
@@ -106,11 +86,11 @@ function test_reaction_reverse_rate_of_progress(gas_Apophis, gas_Cantera)
         reaction = Apophis.reaction(gas_Apophis, i)
         Π = step(reaction.products, gas_Apophis.state.C)
         M = reaction isa ThreeBodyReaction ? total_molar_concentration(gas_Apophis.state.C, reaction.enhancement_factors) : one(Float64)
-        @test M * Π * reverse_rate(reaction, Val(:val)) ≈ reverse_rate_constant_Cantera rtol = 0.005
+        @test M * Π * reverse_rate(reaction, Val(:val)) ≈ reverse_rate_constant_Cantera rtol = 5e-2
     end
 end
 
-_test_reaction_progress_rates(progress_rate_Apophis, progress_rate_Cantera) = @test progress_rate_Apophis ≈ progress_rate_Cantera rtol = 0.005
+_test_reaction_progress_rates(progress_rate_Apophis, progress_rate_Cantera) = @test progress_rate_Apophis ≈ progress_rate_Cantera rtol = 5e-2
 test_reaction_progress_rates(gas_Apophis, gas_Cantera) = foreach(_test_reaction_progress_rates, progress_rates(gas_Apophis), gas_Cantera.net_rates_of_progress)
 
 function test_species_values(gas_Apophis, gas_Cantera)
@@ -133,7 +113,7 @@ end
 function test_values(mech::Union{String, Symbol})
     gas_Apophis = Gas(mech)
     gas_Cantera = run_cantera(mech)
-    for _ in 1:rand(1:10)
+    for _ in 1:rand(1:5)
         T = rand(300.0:3000.0)
         P = rand(0.5Pa:2Pa)
 

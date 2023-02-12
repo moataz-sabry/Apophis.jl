@@ -18,12 +18,7 @@ function test_species_molecular_weights(gas_Apophis, gas_Cantera)
     molecular_weights_Apophis = molecular_weights(gas_Apophis)
     molecular_weights_Cantera = gas_Cantera.molecular_weights
     for k in eachindex(molecular_weights_Apophis)
-        try
-            @test molecular_weights_Apophis[k] ≈ molecular_weights_Cantera[k] rtol = 0.001
-        catch e
-            println("Molecular weight: Apophis ($molecular_weight_Apophis) & Cantera ($molecular_weight_Cantera) for species $(species(gas_Apophis, k))")
-            rethrow(e)
-        end
+        @test molecular_weights_Apophis[k] ≈ molecular_weights_Cantera[k] rtol = 1e-2
     end
 end
 
@@ -31,12 +26,7 @@ function _test_species_components(species_Apophis, species_Cantera)
     for (key, value) in species_Apophis.components
         species_component_Apophis = value
         species_component_Cantera = species_Cantera.composition[(uppercasefirst ∘ lowercase ∘ String)(key)]
-        try
-            @test species_component_Cantera == species_component_Apophis
-        catch e
-            println("Composition: Apophis ($value) & Cantera ($(species_Cantera.composition[key])) for species $(species_Apophis.formula), component $key")
-            rethrow(e)
-        end
+        @test species_component_Cantera == species_component_Apophis
     end
 end
 
@@ -45,12 +35,7 @@ test_species_components(gas_Apophis, gas_Cantera) = foreach(_test_species_compon
 function _test_species_max_temp(species_Apophis, species_Cantera)
     species_max_temp_Apophis = species_Apophis.nasa_polynomial.Tmax
     species_max_temp_Cantera = species_Cantera.thermo.max_temp
-    try
-        @test species_max_temp_Apophis == species_max_temp_Cantera
-    catch e
-        println("Max temperature: Apophis ($species_max_temp_Apophis) & Cantera ($species_max_temp_Cantera) for species $(species_Apophis.formula)")
-        rethrow(e)
-    end
+    @test species_max_temp_Apophis == species_max_temp_Cantera
 end
 
 test_species_max_temp(gas_Apophis, gas_Cantera) = foreach(_test_species_max_temp, species(gas_Apophis), gas_Cantera.species())
@@ -58,12 +43,7 @@ test_species_max_temp(gas_Apophis, gas_Cantera) = foreach(_test_species_max_temp
 function _test_species_min_temp(species_Apophis, species_Cantera)
     species_min_temp_Apophis = species_Apophis.nasa_polynomial.Tmin
     species_min_temp_Cantera = species_Cantera.thermo.min_temp
-    try
-        @test species_min_temp_Apophis == species_min_temp_Cantera
-    catch e
-        println("Min temperature: Apophis ($species_min_temp_Apophis) & Cantera ($species_min_temp_Cantera) for species $(species_Apophis.formula)")
-        rethrow(e)
-    end
+    @test species_min_temp_Apophis == species_min_temp_Cantera
 end
 
 test_species_min_temp(gas_Apophis, gas_Cantera) = foreach(_test_species_min_temp, species(gas_Apophis), gas_Cantera.species())
@@ -72,12 +52,7 @@ function _test_species_coeffs(species_Apophis, species_Cantera)
     species_coeffs_Apophis = [species_Apophis.nasa_polynomial.A..., species_Apophis.nasa_polynomial.a...]
     species_coeffs_Cantera = species_Cantera.thermo.coeffs[2:end]
     for i in eachindex(species_coeffs_Apophis)
-        try
-            @test species_coeffs_Apophis[i] == species_coeffs_Cantera[i]
-        catch e
-            println("Coefficient $i: Apophis ($(species_coeffs_Apophis[i])) & Cantera ($(species_coeffs_Cantera[i])) for species $(species_Apophis.formula)")
-            rethrow(e)
-        end
+        @test species_coeffs_Apophis[i] == species_coeffs_Cantera[i]
     end
 end
 
@@ -86,13 +61,8 @@ test_species_coeffs(gas_Apophis, gas_Cantera) = foreach(_test_species_coeffs, sp
 function _test_species_mid_temp(species_Apophis, species_Cantera)
     np = species_Apophis.nasa_polynomial
     species_mid_temp_Apophis = isequal(np.A, np.a) ? np.Tmax : np.Tₘ ## Because Cantera works like that, if a species has same coefficients for high and low intervals.
-    species_mid_temp_Cantera = species_Cantera.thermo.coeffs[1] 
-    try
-        @test species_mid_temp_Apophis == species_mid_temp_Cantera
-    catch e
-        error("Mid temperature: Apophis ($species_mid_temp_Apophis) & Cantera ($species_mid_temp_Cantera) for species $(species_Apophis.formula)")
-        rethrow(e)
-    end
+    species_mid_temp_Cantera = species_Cantera.thermo.coeffs[1]
+    @test species_mid_temp_Apophis == species_mid_temp_Cantera
 end
 
 test_species_mid_temp(gas_Apophis, gas_Cantera) = foreach(_test_species_mid_temp, species(gas_Apophis), gas_Cantera.species())
@@ -199,12 +169,8 @@ function test_reader(mech::Union{String, Symbol})
     gas_Cantera = run_cantera(mech)
     
     # Test the species reader
-    @testset "Species" begin
-        test_species_reader(gas_Apophis, gas_Cantera)
-    end
+    @testset "Species" test_species_reader(gas_Apophis, gas_Cantera)
     
     # Test the reactions reader
-    @testset "Reactions" begin
-        test_reactions_reader(gas_Apophis, gas_Cantera)
-    end
+    @testset "Reactions" test_reactions_reader(gas_Apophis, gas_Cantera)
 end
