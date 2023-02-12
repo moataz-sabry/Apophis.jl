@@ -18,9 +18,9 @@ version = "3.5.0"
 
 [[deps.Apophis]]
 deps = ["Combinatorics", "LinearAlgebra", "SparseArrays", "SplitApplyCombine", "ThreadsX", "Unitful", "YAML", "Zygote"]
-git-tree-sha1 = "a55a15b9c7bb06f790702f5fe7bdbe4e9a2bfced"
-repo-rev = "tests-clean-up"
-repo-url = "/Users/sabry/Developer/ApophisOrg/Apophis.jl"
+git-tree-sha1 = "bae642067496fe63974edb0118a362dbde9a4de2"
+repo-rev = "default-units"
+repo-url = "https://github.com/ApophisOrg/Apophis.jl.git"
 uuid = "cf72b054-1e85-4718-a3f4-02cfdc10a054"
 version = "1.2.3"
 

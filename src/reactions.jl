@@ -4,10 +4,11 @@ struct Arrhenius{N<:Number} ## [A] := M^(∑νᵣ - 1) ⋅ s^-1; where M = cm^3 
     E::N
 end
 
-function Arrhenius(itr; order=1)
+function Arrhenius(itr; order=1, mechunits = chemkin_default_units)
+    activation_energy_unit, length_unit, quantity_unit = (mechunits[k] for k in ("activation-energy", "length", "quantity"))
     isempty(itr) && return nothing
     A, β, E = itr
-    return Arrhenius(A * rate_units(order), β, E)
+    return Arrhenius(unitfy_rate(A, order, length_unit, quantity_unit), β, unitfy_activation_energy(E, activation_energy_unit))
 end
 
 ((; A, β, E)::Arrhenius{N})(T::N) where {N<:Number} = A * T^β * exp(-E * inv(Rc * T))
