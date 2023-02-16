@@ -3,7 +3,7 @@ Welcome to Apophis! This package is designed to provide sensitivity analysis of 
 
 ## Installation
 ```julia
-] add https://github.com/moataz-sabry/Apophis.jl.git
+] add Apophis
 ```
 ## Quick Start
 ### Reading a Mechanism
@@ -56,9 +56,7 @@ production_rates(gas) # ω̇ [kmol/(m³⋅s)]
   
 ```
 ## To-Do
-- ~~Change default units to SI~~
 - Add routines for other reaction auxillary parameters
-- Correctly implement pressure-dependant reactions
 - Implement diffusion routines
 
 ## References
