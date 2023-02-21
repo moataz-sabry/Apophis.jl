@@ -51,15 +51,15 @@ end
 """
 Main function to create a `Gas` object.
 """
-function Gas(name::Union{Nothing, Symbol,String} = nothing; 
-    kinetics_path = "", 
-    thermo_path = "", 
-    transport_path = "",
-    as::Type{<:Number} = Float64, init...)
+function Gas(name::Union{Nothing, Symbol, String} = nothing;
+    kinetics_path::Maybe{String} = nothing,
+    thermo_path::Maybe{String} = nothing,
+    transport_path::Maybe{String} = nothing,
+    as::Type{<:Number} = Float64,
+    init...)
 
-    mechanism = read_mechanism(name; kinetics_path = kinetics_path, thermo_path = thermo_path, transport_path = transport_path, as = as)
+    mechanism = read_mechanism(name; kinetics_path, thermo_path, transport_path, as)
     gas = Gas(mechanism, State(mechanism))
-
     set!(gas; init...)
     return gas
 end

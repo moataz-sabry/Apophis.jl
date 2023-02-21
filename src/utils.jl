@@ -14,7 +14,7 @@ Base.show(io::IO, (; state)::Gas) = foreach(f -> println(io, "$f: $(getfield(sta
 
 function find_init((; mechanism, state)::Gas{N}, I) where {N<:Number}
     S = zero(state.X)
-    for (s, f) in eachmatch(regextionary[:inputs], I)
+    for (s, f) in eachmatch(:inputs, I)
         species = assign(mechanism.species, s)
         S[species.k] = parse(N, f)
     end
@@ -37,7 +37,7 @@ function set!(gas::Gas{N}; init...) where {N<:Number}
         Xᵢ = init[:X]
         X = Xᵢ isa AbstractVector ? Xᵢ : find_init(gas, init[:X])
         P = init[:P] |> (P -> P isa Quantity ? ustrip(u"Pa", P) : P) |> N
-        TPX!(gas, T, P, X) |> N
+        TPX!(gas, T, P, X)
     elseif haskey(init, :Y) && haskey(init, :ρ)
         Xᵢ = init[:X]
         X = Xᵢ isa AbstractVector ? Xᵢ : find_init(gas, init[:X])

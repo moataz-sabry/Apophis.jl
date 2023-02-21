@@ -41,7 +41,7 @@ const chemkin_default_units = Dict{String, String}(
     "quantity" => "mol"
 )
 
-without_spaces(text::AbstractString) = replace(text, r"\s+" => "")
+remove_spaces(text::AbstractString) = replace(text, r"\s+" => "")
 #=
 Reads a file data located at `file_path` as String. Filters out any exclamation marks `!` and the text following it.
 =#
@@ -66,7 +66,7 @@ find_composition(composition::Dict, N::Type{<:Number}) = Pair{Symbol, N}[element
 #=
 Finds molecular weight of the given species.
 =#
-find_weight(composition::Vector{Pair{Symbol, N}}) where {N<:Number} = sum(weights[element] * count for (element, count) in composition)
+find_weight(composition::Vector{Pair{Symbol, N}}) where {N<:Number} = sum(N(weights[element]) * count for (element, count) in composition)
 
 #=
 Finds temperature ranges of the given species.
@@ -104,7 +104,7 @@ end
 function _find_species(k::Int, species::Symbol, thermo::T, transport::Maybe{T}, N::Type{<:Number}) where {T<:String}
     transport_parameters = isnothing(transport) ? nothing : find_transport_parameters(species, transport, N)
     thermodynamics_parameters = find_thermodynamic_parameters(species, thermo, N)
-    return Species(k, species, Pair{Reaction{N, Species{N}}, N}[], thermodynamics_parameters..., transport_parameters, (; zip(Diffusions, (zeros(N, 9), zero(N)))...),
+    return Species(k, species, Pair{Reaction{N, Species{N}}, N}[], thermodynamics_parameters..., transport_parameters,
         (; zip((:cₚ, :h, :s), Tuple((; zip((:val, :dT), (zeros(N, 1) for _ in OneTo(2)))...) for _ in OneTo(3)))...), 
         (; zip((:ω̇,), tuple((; zip((:val, :dT, :dC), (zeros(N, 1), zeros(N, 1), zeros(N, 0)))...)))...))
 end
@@ -115,7 +115,7 @@ function _find_species(k::Int, species::Dict, N::Type{<:Number})
 
     weight = find_weight(composition)
     thermodynamic_parameters = find_thermodynamic_parameters(species["thermo"], N)
-    return Species(k, name, Pair{Reaction{N, Species{N}}, N}[], composition, weight, thermodynamic_parameters, nothing, (; zip(Diffusions, (zeros(N, 9), zero(N)))...),
+    return Species(k, name, Pair{Reaction{N, Species{N}}, N}[], composition, weight, thermodynamic_parameters, nothing,
         (; zip((:cₚ, :h, :s), Tuple((; zip((:val, :dT), (zeros(N, 1) for _ in OneTo(2)))...) for _ in OneTo(3)))...), 
         (; zip((:ω̇,), tuple((; zip((:val, :dT, :dC), (zeros(N, 1), zeros(N, 1), zeros(N, 0)))...)))...))
 end
@@ -135,7 +135,11 @@ end
 #=
 Finds index of the given `species` in a species list.
 =#
-assign(list::Vector, item::Union{AbstractString, Symbol}) = list[findfirst(i -> isequal(getfield(i, 2), Symbol(item)), list)]
+function assign(list::Vector, item::Union{AbstractString, Symbol})
+    index = findfirst(i -> isequal(getfield(i, 2), Symbol(item)), list)
+    @assert !isnothing(index) "$item is not present in the specified mechanism. Please check the mechanism files and ensure that $item is included"
+    return list[index]
+end
 
 #=
 Checks if the given `reaction` is reversible. Returns true if reversible, false otherwise.
@@ -179,7 +183,7 @@ Decomposes the given `reaction` into pairs of species and number of moles, for b
 =#
 function decompose(reaction::AbstractString, species_list::Vector{Species{N}}) where {N<:Number}
     sides = split(reaction, r"\s*<?=>?\s*", keepempty=false) ## left and right side of the equation
-    sides_components = Tuple(without_spaces(side) |> side -> split(side, r"\+|\(\+|(?<=M)\)"i; keepempty=false) for side in sides) ## products or reactants
+    sides_components = Tuple(remove_spaces(side) |> side -> split(side, r"\+|\(\+|(?<![S|L|G])\)"i; keepempty=false) for side in sides) ## products or reactants
     species_moles = Tuple(Pair{Species{N},N}[Pair(parse_moles(s, pair, species_list)...) for pair in components if pair ≠ "M"] for (s, components) in enumerate(sides_components))
     foreach(combine_moles!, species_moles)
     return species_moles
@@ -197,7 +201,7 @@ find_auxillaries(type::Symbol, data::AbstractString, N::Type{<:Number}) = (isequ
 Finds the `PLOG` parameters of an `ElementaryReaction` in the given reaction `data`. Returns a `Plog` object with the found parameters.
 =#
 find_plog(data::AbstractString, order::Int, N::Type{<:Number}) = Plog(([parse(N, m[p].match) for m in partition(eachmatch(:plog, data), 4)] for p in OneTo(4))...; order)
-find_plog(plogs::Vector{<:Dict}, order::Int, N::Type{<:Number}) = Plog{N}([plogs[p]["P"] |> without_spaces |> uparse |> Fix1(ustrip, u"Pa") for p in eachindex(plogs)], [plogs[p] |> Fix2(get_arrhenius, order) for p in eachindex(plogs)])
+find_plog(plogs::Vector{<:Dict}, order::Int, N::Type{<:Number}) = Plog{N}([plogs[p]["P"] |> remove_spaces |> uparse |> Fix1(ustrip, u"Pa") for p in eachindex(plogs)], [plogs[p] |> Fix2(get_arrhenius, order) for p in eachindex(plogs)])
 
 #=
 Finds the enhancement factors in the given reaction `data`. Returns vector of pairs with species index as keys and enhancement factors as values.
@@ -343,10 +347,10 @@ function get_stoichiometry_matrix(species::Vector{<:Species}) ## fail in case a 
     return sparse(K, I, V)
 end
 
-function _read_mechanism(kinetics::T, thermo::T, transport::T, N::Type{<:Number}) where {T<:String}
+function _read_mechanism(kinetics::T, thermo::T, transport::Maybe{T}, N::Type{<:Number}) where {T<:String}
     kinetics_data = read_data(kinetics)
     thermo_data = read_data(thermo)
-    trans_data = isfile(transport) ? read_data(transport) : nothing
+    trans_data = isnothing(transport) ? nothing : isfile(transport) ? read_data(transport) : nothing
 
     species = find_species(kinetics_data, thermo_data, trans_data, N)
     K = length(species)
@@ -367,18 +371,25 @@ function _read_mechanism(mechanism::Dict, N::Type{<:Number})
     return (; species, reactions, stoichiometry_matrix)
 end
 
-function read_mechanism(name::Union{Nothing,Symbol,String} = nothing; kinetics_path = "", thermo_path = "", transport_path = "", as::Type{<:Number} = Float64)
-    name isa String && last(name, 5) == ".yaml" && return _read_mechanism(load_file(name), as)
+function read_mechanism(name::Union{Nothing, Symbol, String} = nothing;
+    kinetics_path::Maybe{String} = nothing,
+    thermo_path::Maybe{String} = nothing,
+    transport_path::Maybe{String} = nothing,
+    as::Type{<:Number} = Float64)
 
-    if name isa Symbol
-        mechanism_path = pkgdir(Apophis, "test/mechanisms/$(name)")
-        kinetics = mechanism_path * "/kinetics.dat"
-        thermo = mechanism_path * "/thermo.dat"
-        transport = mechanism_path * "/transport.dat"
-    else
+    name isa String && endswith(name, r"\.(:?yaml|yml)") && return _read_mechanism(load_file(name), as)
+    
+    if name isa Symbol || name isa String
+        mechanism_path = pkgdir(Apophis, "test/mechanisms/$name")
+        kinetics = joinpath(mechanism_path, "kinetics.dat")
+        thermo = joinpath(mechanism_path, "thermo.dat")
+        transport = joinpath(mechanism_path, "transport.dat")
+    elseif !isnothing(kinetics_path) && !isnothing(thermo_path)
         kinetics = kinetics_path
         thermo = thermo_path
-        transport = transport_path
+        transport = isnothing(transport_path) ? nothing : transport_path
+    else
+        throw(ArgumentError("Invalid arguments"))
     end
     return _read_mechanism(kinetics, thermo, transport, as)
 end

@@ -20,6 +20,8 @@ _dkfdA((; forward_rate_parameters)::Union{ElementaryReaction{N}, ThreeBodyReacti
 function _dkfdA((; high_pressure_parameters, low_pressure_parameters, enhancement_factors, troe_parameters)::FallOffReaction{N}, (; T, C)::State{N}) where {N<:Number} ## Add dkfdAₒ later
     k∞, kₒ = (high_pressure_parameters, low_pressure_parameters)(T)
     M = total_molar_concentration(C, enhancement_factors)
+    iszero(M) && return zero(N)
+    
     Pᵣ = reduced_pressure(kₒ, M, k∞)
     t = inv(one(N) + Pᵣ)
     

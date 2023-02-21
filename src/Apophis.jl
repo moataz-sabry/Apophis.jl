@@ -2,14 +2,11 @@ module Apophis
 
 using Base.Iterators: filter, flatten, reverse, take, partition
 using Base: Fix1, Fix2, OneTo, rest
-using Combinatorics
-using LinearAlgebra
 using SparseArrays
 using SplitApplyCombine: combinedimsview, mapview
 using Unitful
 using YAML: load_file
 using Zygote
-# using ThreadsX
 
 abstract type AbstractSpecies{N<:Number} end
 abstract type AbstractReaction{N<:Number} end
@@ -22,7 +19,6 @@ const Tᵣ = 300.0 # K
 const d = 0.14
 
 const Maybe{T} = Union{T, Nothing}
-const Diffusions = (:binary_diffusions, :mean_diffusions)
 const Energies{N<:Number} = NamedTuple{(:val, :dT), Tuple{Vector{N}, Vector{N}}}
 const Thermodynamics{N<:Number} = NamedTuple{(:cₚ, :h, :s), NTuple{3, Energies{N}}}
 const Rates{N<:Number} = NamedTuple{(:val, :dT, :dC), NTuple{3, Vector{N}}}

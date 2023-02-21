@@ -208,8 +208,9 @@ function forward_rate(reaction::FallOffReaction{N}, (; T, C)::State{N}) where {N
 
     k∞, kₒ = (high_pressure_parameters, low_pressure_parameters)(T)
     M = total_molar_concentration(C, enhancement_factors)
-    Pᵣ = reduced_pressure(kₒ, M, k∞)
+    iszero(M) && (@inbounds rates.kf.val[] = zero(N); return nothing)
 
+    Pᵣ = reduced_pressure(kₒ, M, k∞)
     F = isnothing(troe_parameters) ? one(N) : troe_parameters(T) |> Fix2(troe_function, Pᵣ)
     @inbounds rates.kf.val[] = F * k∞ * Pᵣ * inv(one(N) + Pᵣ)
     return nothing
@@ -230,6 +231,7 @@ function forward_rate(v::Val{:dT}, reaction::FallOffReaction{N}, (; T, C)::State
 
     (k∞, dk∞dT), (kₒ, dkₒdT) = (high_pressure_parameters, low_pressure_parameters)(v, T)
     M = total_molar_concentration(C, enhancement_factors)
+    iszero(M) && (@inbounds rates.kf.val[] = rates.kf.dT[] = zero(N); return nothing)
 
     Pᵣ = reduced_pressure(kₒ, M, k∞)
     t = inv(one(N) + Pᵣ)
@@ -250,7 +252,7 @@ function forward_rate(v::Val{:dT}, reaction::FallOffReaction{N}, (; T, C)::State
         dFdT = dFdFc * dFcdT + dFdPᵣ * dPᵣdT
 
         @inbounds rates.kf.val[] = F * k∞ * Pᵣ * t
-        @inbounds rates.kf.dT[] = t * ((dk∞dT * Pᵣ + dPᵣdT * k∞ * t)F + dFdT * k∞ * Pᵣ)
+        @inbounds rates.kf.dT[] = t * (F * (dk∞dT * Pᵣ + dPᵣdT * k∞ * t) + dFdT * k∞ * Pᵣ)
     end
     return nothing
 end
@@ -263,6 +265,7 @@ function forward_rate(v::Val{:dC}, reaction::FallOffReaction{N}, (; T, C)::State
 
     k∞, kₒ = (high_pressure_parameters, low_pressure_parameters)(T)
     M = total_molar_concentration(C, enhancement_factors)
+    iszero(M) && (@inbounds rates.kf.dC .= rates.kf.val[] = zero(N); return nothing)
 
     Pᵣ = reduced_pressure(kₒ, M, k∞)
     t = inv(one(N) + Pᵣ)
@@ -272,8 +275,8 @@ function forward_rate(v::Val{:dC}, reaction::FallOffReaction{N}, (; T, C)::State
 
     @inbounds rates.kf.val[] = F * k∞ * Pᵣ * t
     dkfdPᵣ = F * k∞ * t^2
-    dkfdF = k∞ * Pᵣ * t 
-    for ((; k), dMdCₖ) in enhancement_factors ## SparseArrays?
+    dkfdF = k∞ * Pᵣ * t
+    for ((; k), dMdCₖ) in enhancement_factors
         @inbounds rates.kf.dC[k] = (dkfdPᵣ + dkfdF * dFdPᵣ) * dPᵣdM * dMdCₖ
     end
     return nothing
@@ -424,9 +427,9 @@ end
 
 function progress_rate(::Val{:dC}, reaction::ThreeBodyReaction{N}, (; C)::State{N}) where {N<:Number}
     (; kf, kr, q) = reaction.rates
+    M = total_molar_concentration(C, reaction.enhancement_factors)
     ∏ᴵ = step(reaction.reactants, C)
     ∏ᴵᴵ = reaction.isreversible ? step(reaction.products, C) : zero(N)
-    M = total_molar_concentration(C, reaction.enhancement_factors)
 
     for k in eachindex(q.dC)
         d∏ᴵdCₖ = step(reaction.reactants, C, k)

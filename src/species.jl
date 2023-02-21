@@ -54,7 +54,6 @@ struct Species{N<:Number, R<:AbstractReaction{N}} <: AbstractSpecies{N}
     weight::N
     nasa_polynomial::NasaPolynomial{N}
     transport_parameters::Maybe{TransportParameters{N}}
-    diffusions::NamedTuple{Diffusions, Tuple{Vector{N}, N}}
     thermo::Thermodynamics{N}
     rates::SpeciesRates{N}
 end
