@@ -1,7 +1,8 @@
 module Apophis
 
-using Base.Iterators: filter, flatten, reverse, take, partition
+using Base.Iterators: filter, flatten, partition, reverse, take
 using Base: Fix1, Fix2, OneTo, rest
+using PrettyTables
 using SparseArrays
 using SplitApplyCombine: combinedimsview, mapview
 using Unitful
@@ -14,8 +15,8 @@ abstract type AbstractReaction{N<:Number} end
 const R = 8.31446261815324e3 # J K⁻¹ kmol⁻¹
 const Rc = 1.987261815324 # cal K⁻¹ mol⁻¹
 const kB = 1.380649e-23 # J K⁻¹
-const Pa = 101325.0 # Pa
-const Tᵣ = 300.0 # K
+const Pa = 101325 # Pa
+const Tᵣ = 300 # K
 const d = 0.14
 
 const Maybe{T} = Union{T, Nothing}

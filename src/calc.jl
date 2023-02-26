@@ -9,6 +9,6 @@ update_reaction_rates(v::Val, (; mechanism, state)::Gas{<:Number}) = foreach(rea
 update_production_rates((; mechanism)::Gas{<:Number}) = foreach(species -> _update_production_rates(species), mechanism.species)
 update_production_rates(v::Val, (; mechanism)::Gas{<:Number}) = foreach(species -> _update_production_rates(v, species), mechanism.species)
 
-update(gas::Gas{<:Number}) = ((update_thermodynamics, update_reaction_rates, update_production_rates)(gas); return nothing)
-update(gas::Gas{<:Number}, d::Symbol) = ((update_thermodynamics, update_reaction_rates, update_production_rates)(Val(d), gas); return nothing) ## Val(d) allocates 1
+update(gas::Gas{<:Number}) = ((update_thermodynamics, update_reaction_rates, update_production_rates)(gas); return gas)
+update(gas::Gas{<:Number}, d::Symbol) = ((update_thermodynamics, update_reaction_rates, update_production_rates)(Val(d), gas); return gas) ## Val(d) allocates 1
 update(gas::Gas{<:Number}, ds::Vararg{Symbol}) = foreach(d -> update(gas, d), ds)

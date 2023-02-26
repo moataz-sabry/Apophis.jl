@@ -115,7 +115,7 @@ function _test_rate_parameters(reaction_Apophis, reaction_Cantera)
         @test reaction_Apophis.high_pressure_parameters.A ≈ reaction_Cantera.rate.high_rate.pre_exponential_factor
         @test reaction_Apophis.high_pressure_parameters.β ≈ reaction_Cantera.rate.high_rate.temperature_exponent
         @test reaction_Apophis.high_pressure_parameters.E * 4184 ≈ reaction_Cantera.rate.high_rate.activation_energy ## cal to joule
-        
+
         @test reaction_Apophis.low_pressure_parameters.A ≈ reaction_Cantera.rate.low_rate.pre_exponential_factor
         @test reaction_Apophis.low_pressure_parameters.β ≈ reaction_Cantera.rate.low_rate.temperature_exponent
         @test reaction_Apophis.low_pressure_parameters.E * 4184 ≈ reaction_Cantera.rate.low_rate.activation_energy
@@ -167,10 +167,10 @@ end
 function test_reader(mech::Union{String, Symbol})
     gas_Apophis = Gas(mech)
     gas_Cantera = run_cantera(mech)
-    
+
     # Test the species reader
     @testset "Species" test_species_reader(gas_Apophis, gas_Cantera)
-    
+
     # Test the reactions reader
     @testset "Reactions" test_reactions_reader(gas_Apophis, gas_Cantera)
 end

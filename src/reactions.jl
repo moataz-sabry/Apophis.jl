@@ -4,7 +4,7 @@ struct Arrhenius{N<:Number} ## [A] := M^(∑νᵣ - 1) ⋅ s^-1; where M = cm^3 
     E::N
 end
 
-function Arrhenius(itr; order=1, mechunits = chemkin_default_units)
+function Arrhenius(itr; order=1, mechunits=chemkin_default_units)
     activation_energy_unit, length_unit, quantity_unit = (mechunits[k] for k in ("activation-energy", "length", "quantity"))
     isempty(itr) && return nothing
     A, β, E = itr
@@ -31,7 +31,7 @@ struct Plog{N<:Number}
     arrhenius::Vector{Arrhenius{N}}
 end
 
-Plog(itr...; order = 1) = isempty(first(itr)) ? nothing : Plog(first(itr), Arrhenius{Float64}[Arrhenius(p; order) for p in zip(rest(itr, 2)...)])
+Plog(itr...; order=1) = isempty(first(itr)) ? nothing : Plog(first(itr), Arrhenius{Float64}[Arrhenius(p; order) for p in zip(rest(itr, 2)...)])
 
 function isin(p::N, x::Vector{N}) where {N<:Number}
     for i in eachindex(x)
@@ -41,7 +41,7 @@ end
 
 isout(p::N, x::Vector{N}) where {N<:Number} = p > last(x) ? lastindex(x) : p < first(x) ? firstindex(x) : nothing ## on the assumption that plogs are sorted, To-Do: sort in advance
 interpolate(kᵢ::N, kᵢ₊₁::N, Pᵢ::N, Pᵢ₊₁::N, P::N) where {N<:Number} = log(kᵢ) + (log(kᵢ₊₁) - log(kᵢ)) * (log(P) - log(Pᵢ)) / (log(Pᵢ₊₁) - log(Pᵢ))
-interpolate(::Val{:dP}, kᵢ::N, kᵢ₊₁::N, Pᵢ::N, Pᵢ₊₁::N, P::N) where {N<:Number} =  (log(kᵢ₊₁) - log(kᵢ)) / (log(Pᵢ₊₁) - log(Pᵢ))P
+interpolate(::Val{:dP}, kᵢ::N, kᵢ₊₁::N, Pᵢ::N, Pᵢ₊₁::N, P::N) where {N<:Number} = (log(kᵢ₊₁) - log(kᵢ)) / (log(Pᵢ₊₁) - log(Pᵢ))P
 
 function ((; pressures, arrhenius)::Plog{N})(T::N, P::N) where {N<:Number}
     i = isout(P, pressures)
@@ -145,7 +145,7 @@ function troe_function(::Val{:dC}, Fc::N, Pᵣ::N) where {N<:Number}
     t₃ = t₂^2
     t₄ = one(N) + (t₁ / t₃)
 
-    F  = 10.0^(log10Fc / t₄)
+    F = 10.0^(log10Fc / t₄)
     t₅ = log(10.0)F
     t₆ = t₄^2
     t₇ = 2.0log10Fc * t₁ * t₅
@@ -247,7 +247,7 @@ function forward_rate(v::Val{:dT}, reaction::FallOffReaction{N}, (; T, C)::State
     else
         Fc = troe_parameters(T)
         dFcdT = troe_parameters(v, T)
-    
+
         F, dFdFc, dFdPᵣ = troe_function(v, Fc, Pᵣ)
         dFdT = dFdFc * dFcdT + dFdPᵣ * dPᵣdT
 
@@ -287,10 +287,10 @@ function forward_rate(v::Val{:dP}, (; rates, forward_rate_parameters, plog_param
     return nothing
 end
 
-change_enthalpy((; reactants, products)::AbstractReaction{<:Number}, i::Int = 1) = 
+change_enthalpy((; reactants, products)::AbstractReaction{<:Number}, i::Int=1) =
     @inbounds sum(getfield(s.thermo.h, i)[] * ν for (s, ν) in flatten((reactants, products)))
 
-change_entropy((; reactants, products)::AbstractReaction{<:Number}, i::Int = 1) = 
+change_entropy((; reactants, products)::AbstractReaction{<:Number}, i::Int=1) =
     @inbounds sum(getfield(s.thermo.s, i)[] * ν for (s, ν) in flatten((reactants, products)))
 
 function equilibrium_constants(reaction::AbstractReaction{N}, T::N) where {N<:Number}
@@ -307,7 +307,7 @@ end
 function equilibrium_constants(::Val{:dT}, reaction::AbstractReaction{N}, T::N) where {N<:Number}
     ∆H, d∆HdT = (change_enthalpy(reaction, f) for f in OneTo(2))
     ∆S, d∆SdT = (change_entropy(reaction, f) for f in OneTo(2))
-    
+
     ∑ν = reaction.reaction_order
     t₀ = inv(R * T)
     t₁ = ∆S * T - ∆H
@@ -315,12 +315,12 @@ function equilibrium_constants(::Val{:dT}, reaction::AbstractReaction{N}, T::N) 
     Kp = exp(t₁ * t₀)
     ∂Kp∂∆S = Kp / R
     ∂Kp∂∆H = -Kp * t₀
-    ∂Kp∂T = (∆S - t₁ / T) * Kp * t₀ 
+    ∂Kp∂T = (∆S - t₁ / T) * Kp * t₀
 
     Kc = Kp * (Pa * t₀)^∑ν
     ∂Kc∂Kp = (Pa * t₀)^∑ν
     ∂Kc∂T = -Kp * ∑ν * (Pa * t₀)^∑ν / T
-    
+
     dKcdT = ∂Kc∂T + (∂Kp∂T + ∂Kp∂∆H * d∆HdT + ∂Kp∂∆S * d∆SdT) * ∂Kc∂Kp
     return Kc, dKcdT
 end
@@ -331,6 +331,7 @@ function reverse_rate(reaction::AbstractReaction{N}, (; T)::State{N}) where {N<:
     isnothing(reverse_rate_parameters) || (@inbounds rates.kr.val[] = reverse_rate_parameters(T);
         return nothing
     )
+
     Kc = equilibrium_constants(reaction, T)
     @inbounds rates.kr.val[] = rates.kf.val[] / Kc
     return nothing
@@ -344,6 +345,7 @@ function reverse_rate(v::Val{:dT}, reaction::AbstractReaction{N}, (; T)::State{N
     isnothing(reverse_rate_parameters) || ((kr.val[], kr.dT[]) = reverse_rate_parameters(v, T);
         return nothing
     )
+
     Kc, dKcdT = equilibrium_constants(v, reaction, T)
     t = inv(Kc)
 
@@ -363,6 +365,7 @@ function reverse_rate(::Val{:dP}, reaction::AbstractReaction{N}, (; T)::State{N}
     isnothing(reverse_rate_parameters) || (@inbounds rates.kr.val[] = reverse_rate_parameters(T);
         return nothing
     )
+    
     Kc = equilibrium_constants(reaction, T)
     @inbounds rates.kr.dP[] = rates.kf.dP[] / Kc
     return nothing
@@ -376,6 +379,7 @@ function reverse_rate(::Val{:dC}, reaction::FallOffReaction{N}, (; T)::State{N})
     isnothing(reverse_rate_parameters) || (@inbounds kr.val[] = reverse_rate_parameters(T);
         return nothing
     )
+    
     Kc = equilibrium_constants(reaction, T)
     t = inv(Kc)
 
@@ -405,7 +409,7 @@ function progress_rate(::Val{:dT}, reaction::AbstractReaction{N}, (; C)::State{N
     (; kf, kr, q) = reaction.rates
     ∏ᴵ = step(reaction.reactants, C)
     ∏ᴵᴵ = reaction.isreversible ? step(reaction.products, C) : zero(N)
-    
+
     M = reaction isa ThreeBodyReaction ? total_molar_concentration(C, reaction.enhancement_factors) : one(N)
     @inbounds q.val[] = M * (kf.val[] * ∏ᴵ - kr.val[] * ∏ᴵᴵ)
     @inbounds q.dT[] = M * (kf.dT[] * ∏ᴵ - kr.dT[] * ∏ᴵᴵ)
@@ -436,7 +440,7 @@ function progress_rate(::Val{:dC}, reaction::ThreeBodyReaction{N}, (; C)::State{
         d∏ᴵᴵdCₖ = step(reaction.products, C, k)
         @inbounds q.dC[k] = M * (kf.val[] * d∏ᴵdCₖ - kr.val[] * d∏ᴵᴵdCₖ)
     end
-    
+
     for ((; k), dMdCₖ) in reaction.enhancement_factors
         @inbounds q.dC[k] += dMdCₖ * (kf.val[] * ∏ᴵ - kr.val[] * ∏ᴵᴵ)
     end
@@ -462,7 +466,7 @@ function progress_rate(::Val{:dP}, reaction::AbstractReaction{N}, (; C)::State{N
     (; kf, kr, q) = reaction.rates
     ∏ᴵ = step(reaction.reactants, C)
     ∏ᴵᴵ = reaction.isreversible ? step(reaction.products, C) : zero(N)
-    
+
     M = reaction isa ThreeBodyReaction ? total_molar_concentration(C, reaction.enhancement_factors) : one(N)
     @inbounds q.dP[] = M * (kf.dP[] * ∏ᴵ - kr.dP[] * ∏ᴵᴵ)
     return nothing
