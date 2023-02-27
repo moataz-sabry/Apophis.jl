@@ -118,7 +118,7 @@ function test_values(mech::Union{String, Symbol})
         rnd = (rand ∘ length ∘ species)(gas_Apophis)
         Y = rnd / sum(rnd)
 
-        TPY!(gas_Apophis, T, P, Y) |> update
+        TPY!(gas_Apophis; T, P, Y) |> update
         gas_Cantera.TPY = T, P, Y
 
         # Test the species values

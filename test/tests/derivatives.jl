@@ -15,11 +15,11 @@ function perturbe(gas::Gas{<:Complex}, output_func::Function, ::Val{:dT}, ε=1e-
     derivative = zero(output)
 
     gas.state.T += (ε)im
-    TPC!(gas, gas.state.T, gas.state.P, gas.state.C) |> update
+    TPC!(gas; T=gas.state.T, P=gas.state.P, C=gas.state.C) |> update
     derivative[:, 1] = imag(output) / ε
 
     gas.state.T -= (ε)im
-    TPC!(gas, gas.state.T, gas.state.P, gas.state.C)
+    TPC!(gas; T=gas.state.T, P=gas.state.P, C=gas.state.C)
     return derivative
 end
 
@@ -29,10 +29,10 @@ function perturbe(gas::Gas{<:Complex}, output_func::Function, ::Val{:dC}, ε=1e-
     derivative = zeros(length(output), length(input))
     for i in eachindex(input)
         input[i] += (ε)im
-        TPC!(gas, gas.state.T, gas.state.P, gas.state.C) |> update
+        TPC!(gas; T=gas.state.T, P=gas.state.P, C=gas.state.C) |> update
         derivative[:, i] = imag(output) / ε
         input[i] -= (ε)im
-        TPC!(gas, gas.state.T, gas.state.P, gas.state.C)
+        TPC!(gas; T=gas.state.T, P=gas.state.P, C=gas.state.C)
     end
     return derivative
 end
@@ -71,8 +71,8 @@ function test_derivatives(mech::Union{String, Symbol})
         Yc = rnd / sum(rnd) .+ 0im
 
         T, P, Y = real(Tc), real(Pc), real(Yc)
-        TPY!(real_gas, T, P, Y)
-        TPY!(complex_gas, Tc, Pc, Yc)
+        TPY!(real_gas; T, P, Y)
+        TPY!(complex_gas; T=Tc, P=Pc, Y=Yc)
         test_derivatives(real_gas, complex_gas)
     end
 end
