@@ -50,7 +50,7 @@ read_data(file_path::String) = read(file_path, String) |> Fix2(replace, r"!.*" =
 #=
 Finds elements in the given kinetics `data`. Return a tuple of elements found.
 =#
-find_elements(data::String) = Tuple(m.match for m in eachmatch(:elements, data))
+find_elements(data::String) = Tuple(m.match for m in _eachmatch(:elements, data))
 
 #=
 Looks up the transport `data` for the transport parameters of the given `species`.
@@ -60,7 +60,7 @@ find_transport_parameters(species::Symbol, data::String, N::Type{<:Number}) = Tr
 #=
 Finds composition of the given species. ## Uppercasing to avoid lowercases not being found, for example: Ar
 =#
-find_composition(data::AbstractString, N::Type{<:Number}) = Pair{Symbol, N}[rstrip(element) |> Symbol => parse(N, count) for (element, count) in eachmatch(:weights, data)]
+find_composition(data::AbstractString, N::Type{<:Number}) = Pair{Symbol, N}[rstrip(element) |> Symbol => parse(N, count) for (element, count) in _eachmatch(:weights, data)]
 find_composition(composition::Dict, N::Type{<:Number}) = Pair{Symbol, N}[element |> Symbol => N(count) for (element, count) in composition]
 
 #=
@@ -71,14 +71,14 @@ find_weight(composition::Vector{Pair{Symbol, N}}) where {N<:Number} = sum(N(weig
 #=
 Finds temperature ranges of the given species.
 =#
-find_temperatures(species_data::AbstractString, N::Type{<:Number}) = Tuple(parse(N, T) for T in match(:temperature_ranges, species_data))
+find_temperatures(species_data::AbstractString, N::Type{<:Number}) = Tuple(parse(N, T) for T in _match(:temperature_ranges, species_data))
 find_temperatures(thermo::Dict, N::Type{<:Number}) = Tuple(N(T) for T in thermo["temperature-ranges"]) |> T -> length(T) == 3 ? (T[1], T[3], T[2]) : (T[1], T[2], T[1])
 
 #=
 Finds nasa polynomial coefficients of the given species. Only 14 because 15th match would be the (optional) molecular weight.
 =#
 
-find_coefficients(species_data::AbstractString, N::Type{<:Number}) = Tuple(Tuple(a) for a in partition((parse(N, m.match) for m in take(eachmatch(:coefficients, species_data), 14)), 7))
+find_coefficients(species_data::AbstractString, N::Type{<:Number}) = Tuple(Tuple(a) for a in partition((parse(N, m.match) for m in take(_eachmatch(:coefficients, species_data), 14)), 7))
 find_coefficients(thermo::Dict, N::Type{<:Number}) = Tuple(Tuple(a isa String ? parse(N, a) : N(a) for a in coeffs) for coeffs in reverse(thermo["data"]))
 
 #=
@@ -86,7 +86,8 @@ Looks up the thermodynamics `data` for the thermodynamic parameters of the given
 =#
 function find_thermodynamic_parameters(species::Symbol, data::String, N::Type{<:Number})
     regex = regextionary[:thermodynamics](species)
-    species_data = match(regex, data).match
+    mtch = match(regex, data)
+    species_data = isnothing(mtch) ? error("No thermodynamic properties found for species $species") : mtch.match
 
     composition, temperatures, coefficients = (find_composition, find_temperatures, find_coefficients)(species_data, N)
     weight = find_weight(composition)
@@ -123,11 +124,11 @@ end
 #=
 Finds the properties of the species found in the given kinetics `data`. Return the species found as a Vector of type `Species`.
 =#
-find_species(kinetics::T, thermo::T, transport::Maybe{T}, N::Type{<:Number}) where {T<:String} = Species{N}[_find_species(k, Symbol(m.match), thermo, transport, N) for (k, m) in enumerate(eachmatch(:species, kinetics))]
+find_species(kinetics::T, thermo::T, transport::Maybe{T}, N::Type{<:Number}) where {T<:String} = Species{N}[_find_species(k, Symbol(m.match), thermo, transport, N) for (k, m) in enumerate(_eachmatch(:species, kinetics))]
 find_species(species::Vector{<:Dict}, N::Type{<:Number}) = Species{N}[_find_species(k, s, N) for (k, s) in enumerate(species)]
 
 function find_mechanism_units(data::String) 
-    units_found = Tuple(s for s in eachmatch(:units, data))
+    units_found = Tuple(s for s in _eachmatch(:units, data))
     mechanism_units = Dict{String, String}(contains(u, r"^MOLES|MOLECULES$") ? "activation-energy" => u : "quantity" => u for u in units_found)
     return mechanism_units
 end
@@ -162,7 +163,7 @@ end
 Parses the number of moles for the given reactant or product pair. A pair means ...
 =#
 function parse_moles(s::Int, pair::AbstractString, species_list::Vector{Species{N}}) where {N<:Number}
-    moles_string, species_string = match(:moles, pair)
+    moles_string, species_string = _match(:moles, pair)
     species = assign(species_list, species_string)
     moles = (-1)^s * (isnothing(moles_string) ? one(N) : parse(N, moles_string))
     return species, moles
@@ -195,12 +196,12 @@ get_arrhenius(arrhenius::Dict, order::Int, mechunits::Dict) = Arrhenius(arrheniu
 Finds the auxillary parameters in the given reaction `data`. Auxillary parameters could be `LOW`, `TROE` or `REV` parameters.
 Returns the found parameters as object of type `Arrhenius` or `Troe`
 =#
-find_auxillaries(type::Symbol, data::AbstractString, N::Type{<:Number}) = (isequal(type, :troe) ? Troe : Arrhenius)(parse(N, p.match) for p in eachmatch(type, data))
+find_auxillaries(type::Symbol, data::AbstractString, N::Type{<:Number}) = (isequal(type, :troe) ? Troe : Arrhenius)(parse(N, p.match) for p in _eachmatch(type, data))
 
 #=
 Finds the `PLOG` parameters of an `ElementaryReaction` in the given reaction `data`. Returns a `Plog` object with the found parameters.
 =#
-find_plog(data::AbstractString, order::Int, N::Type{<:Number}) = Plog(([parse(N, m[p].match) for m in partition(eachmatch(:plog, data), 4)] for p in OneTo(4))...; order)
+find_plog(data::AbstractString, order::Int, N::Type{<:Number}) = Plog(([parse(N, m[p].match) for m in partition(_eachmatch(:plog, data), 4)] for p in OneTo(4))...; order)
 find_plog(plogs::Vector{<:Dict}, order::Int, N::Type{<:Number}) = Plog{N}([plogs[p]["P"] |> remove_spaces |> uparse |> Fix1(ustrip, u"Pa") for p in eachindex(plogs)], [plogs[p] |> Fix2(get_arrhenius, order) for p in eachindex(plogs)])
 
 #=
@@ -214,7 +215,7 @@ function remove_threebody!(parts::Vector{Pair{Species{N}, N}}, threebody::Specie
     return nothing
 end
 
-_find_enhancemets(data::AbstractString, species_list::Vector{Species{N}}) where {N<:Number} = Pair{Species{N}, N}[assign(species_list, species) => parse(N, factor) for (species, factor) in eachmatch(:enhancements, data)]
+_find_enhancemets(data::AbstractString, species_list::Vector{Species{N}}) where {N<:Number} = Pair{Species{N}, N}[assign(species_list, species) => parse(N, factor) for (species, factor) in _eachmatch(:enhancements, data)]
 _find_enhancemets(data::Dict, species_list::Vector{Species{N}}) where {N<:Number} = get(data, "efficiencies", nothing) |> d -> isnothing(d) ? Pair{Species{N}, N}[] : Pair{Species{N}, N}[assign(species_list, species) => N(factor) for (species, factor) in d]
 
 function find_enhancements(data::Union{AbstractString, Dict}, species_list::Vector{Species{N}}, components::NTuple{2, Vector{<:Pair}}) where {N<:Number}
@@ -241,15 +242,15 @@ Finds the kinetic parameters of an `ElementaryReaction` in the given reaction `d
 =#
 function find_kinetics(::Type{ElementaryReaction}, data::AbstractString, species::Vector{Species{N}}, components::NTuple{2, Vector{<:Pair}}) where {N<:Number}
     forward_order, reverse_order = Tuple(order(p) for p in components)
-    forward_parameters = Arrhenius(parse(N, p.match) for p in eachmatch(:high, data); order = forward_order)
-    reverse_paramters = Arrhenius(parse(N, p.match) for p in eachmatch(:rev, data); order = reverse_order)
+    forward_parameters = Arrhenius(parse(N, p.match) for p in _eachmatch(:high, data); order = forward_order)
+    reverse_paramters = Arrhenius(parse(N, p.match) for p in _eachmatch(:rev, data); order = reverse_order)
     plog_parameters = find_plog(data, forward_order, N)
     return forward_parameters, reverse_paramters, plog_parameters
 end
 
 function find_kinetics(::Type{ElementaryReaction}, reaction::Dict, species::Vector{Species{N}}, components::NTuple{2, Vector{<:Pair}}, mechunits::Dict) where {N<:Number}
     forward_order = first(components) |> order
-    forward_parameters, plog_parameters = haskey(reaction, "rate-constants") ? (nothing, find_plog(reaction["rate-constants"], forward_order, N)) : (get_arrhenius(reaction["rate-constant"], forward_order, mechunits), nothing)
+    forward_parameters, plog_parameters = haskey(reaction, "rate-constants") ? (Arrhenius(zero(N) for _ in OneTo(3)), find_plog(reaction["rate-constants"], forward_order, N)) : (get_arrhenius(reaction["rate-constant"], forward_order, mechunits), nothing)
     return forward_parameters, nothing, plog_parameters
 end
 
@@ -259,8 +260,8 @@ Finds the kinetic parameters of a `ThreeBodyReaction` in the given reaction `dat
 function find_kinetics(::Type{ThreeBodyReaction}, data::AbstractString, species::Vector{Species{N}}, components::NTuple{2, Vector{<:Pair}}) where {N<:Number}
     enhancements = find_enhancements(data, species, components)
     forward_order, reverse_order = Tuple(order(p) for p in components)
-    forward_parameters = Arrhenius(parse(N, p.match) for p in eachmatch(:high, data); order = forward_order + 1)
-    reverse_paramters = Arrhenius(parse(N, p.match) for p in eachmatch(:rev, data); order = reverse_order + 1)
+    forward_parameters = Arrhenius(parse(N, p.match) for p in _eachmatch(:high, data); order = forward_order + 1)
+    reverse_paramters = Arrhenius(parse(N, p.match) for p in _eachmatch(:rev, data); order = reverse_order + 1)
     return forward_parameters, reverse_paramters, enhancements
 end
 
@@ -277,10 +278,10 @@ Finds the kinetic parameters of a `FallOffReaction` in the given reaction `data`
 function find_kinetics(::Type{FallOffReaction}, data::AbstractString, species_list::Vector{Species{N}}, components::NTuple{2, Vector{<:Pair}}) where {N<:Number}
     enhancements = find_enhancements(data, species_list, components)
     forward_order, reverse_order = Tuple(order(p) for p in components)
-    high_parameters = Arrhenius(parse(N, p.match) for p in eachmatch(:high, data); order = forward_order)
-    low_parameters = Arrhenius(parse(N, p.match) for p in eachmatch(:low, data); order = forward_order + 1)
-    troe_parameters = Troe(parse(N, p.match) for p in eachmatch(:troe, data))
-    reverse_paramters = Arrhenius(parse(N, p.match) for p in eachmatch(:rev, data); order = reverse_order)
+    high_parameters = Arrhenius(parse(N, p.match) for p in _eachmatch(:high, data); order = forward_order)
+    low_parameters = Arrhenius(parse(N, p.match) for p in _eachmatch(:low, data); order = forward_order + 1)
+    troe_parameters = Troe(parse(N, p.match) for p in _eachmatch(:troe, data))
+    reverse_paramters = Arrhenius(parse(N, p.match) for p in _eachmatch(:rev, data); order = reverse_order)
     return high_parameters, low_parameters, troe_parameters, reverse_paramters, enhancements
 end
 
@@ -337,7 +338,7 @@ end
 #=
 Finds the reactions of the given kinetics `data`. Returns a vector of the reactions.
 =#
-find_reaction(data::String, species::Vector{Species{N}}) where {N<:Number} = Reaction{N, Species{N}}[_find_reaction(i, r, species) for (i, r) in enumerate(eachmatch(:reactions, data))]
+find_reaction(data::String, species::Vector{Species{N}}) where {N<:Number} = Reaction{N, Species{N}}[_find_reaction(i, r, species) for (i, r) in enumerate(_eachmatch(:reactions, data))]
 find_reaction(reactions::Vector{<:Dict}, species::Vector{Species{N}}, mechunits::Dict) where {N<:Number} = Reaction{N, Species{N}}[_find_reaction(i, r, species, mechunits) for (i, r) in enumerate(reactions)]
 
 function get_stoichiometry_matrix(species::Vector{<:Species}) ## fail in case a species doesn't appear in any reaction

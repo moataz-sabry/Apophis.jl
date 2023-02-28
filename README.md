@@ -9,8 +9,9 @@ pkg> add Apophis
 ### Reading a Mechanism
 ```julia
 julia> using Apophis
+julia> using Unitful: K, Pa
 
-julia> gas = Gas(:GRI3; T = 1000, P = 101325, Y = "CH4: 0.05, O2: 0.20, N2: 0.75")
+julia> gas = Gas(:GRI3; T = 1000K, P = 101325Pa, Y = "CH4: 0.05, O2: 0.20, N2: 0.75")
 # Creates a Gas based on the given mechanism data files
 
               T: 1000 K  //  P: 101325 Pa  //  ρ: 0.3372 kg/m³
@@ -42,15 +43,15 @@ julia> pressure(gas) # P [Pa]
 julia> update(gas);
 # Updates internal variables based on the current gas state
 
-julia> production_rates(gas) # ω̇ [kmol/(m³⋅s)]
+julia> production_rates(gas; view=false) # ω̇ [kmol/(m³⋅s)]
 53-element Vector{Float64}:
   0.0
-  3.7072899145013144e-11
-  1.3302904784766728e-16
- -8.845602918023088e-8
+  8.034465079230524e-7
+  1.6467013518389382e-12
+ -2.8148788209137565e-5
   0.0
   0.0
-  8.845602904821038e-8
+  2.8148786697190487e-5
   0.0
   0.0
   0.0
@@ -58,13 +59,12 @@ julia> production_rates(gas) # ω̇ [kmol/(m³⋅s)]
   0.0
   0.0
   0.0
- -1.434894871257002e-16
+ -2.6060314085092194e-12
   0.0
   0.0
   0.0
   0.0
   0.0
-  
 ```
 ## To-Do
 - Add routines for other reaction auxillary parameters

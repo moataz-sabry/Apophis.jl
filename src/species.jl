@@ -70,7 +70,10 @@ end
 
 _update_thermodynamics(::Val{:dC}, species::AbstractSpecies{N}, T::N) where {N<:Number} = _update_thermodynamics(species, T)
 
-_update_production_rates((; rates, inreactions)::AbstractSpecies{N}) where {N<:Number} = @inbounds setindex!(rates.ω̇.val, sum(r.rates.q.val[] * ν for (r, ν) in inreactions; init=zero(N)), 1)
+function _update_production_rates((; rates, inreactions)::AbstractSpecies{N}) where {N<:Number}
+    @inbounds rates.ω̇.val[] = sum(r.rates.q.val[] * ν for (r, ν) in inreactions; init=zero(N))
+    return nothing
+end
 
 function _update_production_rates(::Val{:dT}, species::AbstractSpecies{N}) where {N<:Number}
     _update_production_rates(species)

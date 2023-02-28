@@ -4,7 +4,7 @@ using Base.Iterators: filter, flatten, partition, reverse, take
 using Base: Fix1, Fix2, OneTo, rest
 using PrettyTables
 using SparseArrays
-using SplitApplyCombine: combinedimsview, mapview
+using SplitApplyCombine: combinedims, combinedimsview, mapview
 using Unitful
 using YAML: load_file
 using Zygote

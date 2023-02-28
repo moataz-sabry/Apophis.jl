@@ -6,7 +6,7 @@ update_thermodynamics(v::Val, (; mechanism, state)::Gas{<:Number}) = foreach(spe
 update_reaction_rates((; mechanism, state)::Gas{<:Number}) = foreach(reaction -> _update_reaction_rates(reaction, state), mechanism.reactions)
 update_reaction_rates(v::Val, (; mechanism, state)::Gas{<:Number}) = foreach(reaction -> _update_reaction_rates(v, reaction, state), mechanism.reactions)
 
-update_production_rates((; mechanism)::Gas{<:Number}) = foreach(species -> _update_production_rates(species), mechanism.species)
+update_production_rates((; mechanism)::Gas{<:Number}) = foreach(_update_production_rates, mechanism.species)
 update_production_rates(v::Val, (; mechanism)::Gas{<:Number}) = foreach(species -> _update_production_rates(v, species), mechanism.species)
 
 update(gas::Gas{<:Number}) = ((update_thermodynamics, update_reaction_rates, update_production_rates)(gas); return gas)

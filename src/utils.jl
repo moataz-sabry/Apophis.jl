@@ -3,10 +3,10 @@ export
     molecular_weights, production_rates, heat_capacities_pressure, average_heat_capacity_pressure, heat_capacities_volume, average_heat_capacity_volume,
     enthalpies, internal_energies, entropies, forward_rates, reverse_rates, progress_rates, stoichiometry_matrix
 
-@generated (t::Union{NTuple{N, Function},NTuple{N, Arrhenius}})(x...) where {N} = :($((:(t[$i](x...)) for i in OneTo(N))...),)
+@generated (t::Union{NTuple{N, Function}, NTuple{N, Arrhenius}})(x...) where {N} = :($((:(t[$i](x...)) for i in OneTo(N))...),)
 
-Base.match(what::Symbol, data::AbstractString) = match(regextionary[what], data)
-Base.eachmatch(what::Symbol, data::AbstractString) = eachmatch(regextionary[what], data)
+_match(what::Symbol, data::AbstractString) = match(regextionary[what], data)
+_eachmatch(what::Symbol, data::AbstractString) = eachmatch(regextionary[what], data)
 
 Base.show(io::IO, s::Species) = print(io, s.formula)
 Base.show(io::IO, r::AbstractReaction) = print(io, r.equation)
@@ -51,7 +51,7 @@ end
 
 function find_init((; mechanism, state)::Gas{N}, I::String) where {N<:Number}
     S = zeros(N, length(mechanism.species))
-    for (s, f) in eachmatch(:inputs, I)
+    for (s, f) in _eachmatch(:inputs, I)
         species = assign(mechanism.species, s)
         S[species.k] = parse(N, f)
     end
@@ -61,7 +61,7 @@ end
 function set!(gas::Gas{N}; init...) where {N<:Number}
     linit = length(init)
     iszero(linit) && return gas
-    linit ≠ 3 && throw(ArgumentError("Invalid number of state variables specified. Exactly three state variables must be specified."))
+    linit ≠ 3 && throw(ArgumentError("Invalid number of state variables given. Exactly three state variables must be specified."))
 
     hasP, hasρ, hasY, hasX, hasC = (haskey(init, f) for f in (:P, :ρ, :Y, :X, :C))
     count((hasP, hasρ)) > 1 && throw(ArgumentError("Either specify P or ρ"))
@@ -99,37 +99,37 @@ species((; mechanism)::Gas) = mechanism.species
 species(gas::Gas, i::Int) = species(gas)[i]
 species(gas::Gas, s::Union{String, Symbol}) = assign(species(gas), s)
 
-molecular_weights(gas::Gas, f::Function=identity) = mapview(s -> f(s.weight), species(gas))
+molecular_weights(gas::Gas, f::Function=identity; view=true) = (view ? mapview : map)(s -> f(s.weight), species(gas))
 stoichiometry_matrix((; mechanism)::Gas) = mechanism.stoichiometry_matrix
 
 heat_capacity_pressure(species::Species, ::Val{:val}=Val(:val); in=nothing) = species.thermo.cₚ.val[] * (isnothing(in) || ustrip(in, 1u"J/(kmol*K)"))
 heat_capacity_pressure(species::Species, ::Val{:dT}; in=nothing) = species.thermo.cₚ.dT[] * (isnothing(in) || ustrip(in, 1u"J/(kmol*K^2)"))
-heat_capacities_pressure(gas::Gas, v::Val=Val(:val); in=nothing) = mapview(s -> heat_capacity_pressure(s, v; in), species(gas))
+heat_capacities_pressure(gas::Gas, v::Val=Val(:val); in=nothing, view=true) = (view ? mapview : map)(s -> heat_capacity_pressure(s, v; in), species(gas))
 average_heat_capacity_pressure(gas::Gas, v::Val=Val(:val); in=nothing) = sum(cₚ * y / w for (cₚ, y, w) in zip(heat_capacities_pressure(gas, v; in=isnothing(in) ? nothing : in * u"kg/kmol"), mass_fractions(gas), molecular_weights(gas)))
 
-heat_capacities_volume(gas::Gas, ::Val{:val}=Val(:val); in=nothing) = mapview(cₚ -> cₚ - R, heat_capacities_pressure(gas; in))
+heat_capacities_volume(gas::Gas, ::Val{:val}=Val(:val); in=nothing, view=true) = (view ? mapview : map)(cₚ -> cₚ - R, heat_capacities_pressure(gas; in))
 heat_capacities_volume(gas::Gas, v::Val{:dT}; in=nothing) = heat_capacities_pressure(gas, v; in)
 average_heat_capacity_volume(gas::Gas, v::Val=Val(:val); in=nothing) = sum(cᵥ * y / w for (cᵥ, y, w) in zip(heat_capacities_volume(gas, v; in=isnothing(in) ? nothing : in * u"kg/kmol"), mass_fractions(gas), molecular_weights(gas)))
 
 enthalpy(species::Species; in=nothing) = enthalpy(species, Val(:val); in)
 enthalpy(species::Species, ::Val{:val}; in=nothing) = species.thermo.h.val[] * (isnothing(in) || ustrip(in, 1u"J/kmol"))
 enthalpy(species::Species, ::Val{:dT}; in=nothing) = species.thermo.h.dT[] * (isnothing(in) || ustrip(in, 1u"J/(kmol*K)"))
-enthalpies(gas::Gas, v::Val=Val(:val); in=nothing) = mapview(s -> enthalpy(s, v; in), species(gas))
+enthalpies(gas::Gas, v::Val=Val(:val); in=nothing, view=true) = (view ? mapview : map)(s -> enthalpy(s, v; in), species(gas))
 
-internal_energies(gas::Gas, ::Val{:val}=Val(:val); in=nothing) = mapview(h -> h - R * temperature(gas), enthalpies(gas; in))
-internal_energies(gas::Gas, v::Val{:dT}; in=nothing) = mapview(h -> h - R, enthalpies(gas, v; in))
+internal_energies(gas::Gas, ::Val{:val}=Val(:val); in=nothing, view=true) = (view ? mapview : map)(h -> h - R * temperature(gas), enthalpies(gas; in))
+internal_energies(gas::Gas, v::Val{:dT}; in=nothing, view=true) = (view ? mapview : map)(h -> h - R, enthalpies(gas, v; in))
 
 entropy(species::Species; in=nothing) = entropy(species, Val(:val); in)
 entropy(species::Species, ::Val{:val}; in=nothing) = species.thermo.s.val[] * (isnothing(in) || ustrip(in, 1u"J/(kmol*K)"))
 entropy(species::Species, ::Val{:dT}; in=nothing) = species.thermo.s.dT[] * (isnothing(in) || ustrip(in, 1u"J/(kmol*K^2)"))
-entropies(gas::Gas, v::Val=Val(:val); in=nothing) = mapview(s -> entropy(s, v; in), species(gas))
+entropies(gas::Gas, v::Val=Val(:val); in=nothing, view=true) = (view ? mapview : map)(s -> entropy(s, v; in), species(gas))
 
 production_rate(gas::Gas, s::Union{String, Symbol}, v::Val=Val(:val); in=nothing) = species(gas, s) |> s -> production_rate(s, v, in)
 production_rate(species::Species, ::Val{:val}=Val(:val); in=nothing) = species.rates.ω̇.val[] * (isnothing(in) || ustrip(in, 1u"kmol/(m^3*s)"))
 production_rate(species::Species, ::Val{:dT}; in=nothing) = species.rates.ω̇.dT[] * (isnothing(in) || ustrip(in, 1u"kmol/(m^3*K*s)"))
 production_rate(species::Species, ::Val{:dC}; in=nothing) = species.rates.ω̇.dC
-production_rates(gas::Gas, v::Val=Val(:val); in=nothing) = mapview(s -> production_rate(s, v; in), species(gas))
-production_rates(gas::Gas, v::Val{:dC}; in=nothing) = mapview(s -> production_rate(s, v; in), species(gas)) |> Fix2(combinedimsview, 1)
+production_rates(gas::Gas, v::Val=Val(:val); in=nothing, view=true) = (view ? mapview : map)(s -> production_rate(s, v; in), species(gas))
+production_rates(gas::Gas, v::Val{:dC}; in=nothing, view=true) = (view ? mapview : map)(s -> production_rate(s, v; in), species(gas)) |> Fix2((view ? combinedimsview : combinedims), 1)
 
 reactions((; mechanism)::Gas) = mechanism.reactions
 reaction(gas::Gas, i::Int) = reactions(gas)[i]
@@ -138,17 +138,17 @@ reaction(gas::Gas, r::Union{String, Symbol}) = assign(reactions(gas), r)
 forward_rate(reaction::AbstractReaction, ::Val{:val}=Val(:val)) = reaction.rates.kf.val[]
 forward_rate(reaction::AbstractReaction, ::Val{:dT}) = reaction.rates.kf.dT[]
 forward_rate(reaction::AbstractReaction, ::Val{:dC}) = reaction.rates.kf.dC
-forward_rates(gas::Gas, v::Val=Val(:val)) = mapview(r -> forward_rate(r, v), reactions(gas))
-forward_rates(gas::Gas, v::Val{:dC}) = mapview(r -> forward_rate(r, v), reactions(gas)) |> Fix2(combinedimsview, 1)
+forward_rates(gas::Gas, v::Val=Val(:val); view=true) = (view ? mapview : map)(r -> forward_rate(r, v), reactions(gas))
+forward_rates(gas::Gas, v::Val{:dC}; view=true) = (view ? mapview : map)(r -> forward_rate(r, v), reactions(gas)) |> Fix2((view ? combinedimsview : combinedims), 1)
 
 reverse_rate(reaction::AbstractReaction, ::Val{:val}=Val(:val)) = reaction.rates.kr.val[]
 reverse_rate(reaction::AbstractReaction, ::Val{:dT}) = reaction.rates.kr.dT[]
 reverse_rate(reaction::AbstractReaction, ::Val{:dC}) = reaction.rates.kr.dC
-reverse_rates(gas::Gas, v::Val=Val(:val)) = mapview(r -> reverse_rate(r, v), reactions(gas))
-reverse_rates(gas::Gas, v::Val{:dC}) = mapview(r -> reverse_rate(r, v), reactions(gas)) |> Fix2(combinedimsview, 1)
+reverse_rates(gas::Gas, v::Val=Val(:val); view=true) = (view ? mapview : map)(r -> reverse_rate(r, v), reactions(gas))
+reverse_rates(gas::Gas, v::Val{:dC}; view=true) = (view ? mapview : map)(r -> reverse_rate(r, v), reactions(gas)) |> Fix2((view ? combinedimsview : combinedims), 1)
 
 progress_rate(reaction::AbstractReaction, ::Val{:val}=Val(:val); in=nothing) = reaction.rates.q.val[] * (isnothing(in) || ustrip(in, 1u"kmol/(m^3*s)"))
 progress_rate(reaction::AbstractReaction, ::Val{:dT}; in=nothing) = reaction.rates.q.dT[] * (isnothing(in) || ustrip(in, 1u"kmol/(m^3*K*s)"))
 progress_rate(reaction::AbstractReaction, ::Val{:dC}; in=nothing) = reaction.rates.q.dC
-progress_rates(gas::Gas, v::Val=Val(:val)) = mapview(r -> progress_rate(r, v), reactions(gas))
-progress_rates(gas::Gas, v::Val{:dC}) = mapview(r -> progress_rate(r, v), reactions(gas)) |> Fix2(combinedimsview, 1)
+progress_rates(gas::Gas, v::Val=Val(:val); view=true) = (view ? mapview : map)(r -> progress_rate(r, v), reactions(gas))
+progress_rates(gas::Gas, v::Val{:dC}; view=true) = (view ? mapview : map)(r -> progress_rate(r, v), reactions(gas)) |> Fix2((view ? combinedimsview : combinedims), 1)
