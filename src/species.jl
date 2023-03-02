@@ -69,6 +69,7 @@ function _update_thermodynamics(v::Val{:dT}, (; nasa_polynomial, thermo)::Abstra
 end
 
 _update_thermodynamics(::Val{:dC}, species::AbstractSpecies{N}, T::N) where {N<:Number} = _update_thermodynamics(species, T)
+_update_thermodynamics(::Val{:dP}, species::AbstractSpecies{N}, T::N) where {N<:Number} = _update_thermodynamics(species, T)
 
 function _update_production_rates((; rates, inreactions)::AbstractSpecies{N}) where {N<:Number}
     @inbounds rates.ω̇.val[] = sum(r.rates.q.val[] * ν for (r, ν) in inreactions; init=zero(N))
@@ -78,6 +79,12 @@ end
 function _update_production_rates(::Val{:dT}, species::AbstractSpecies{N}) where {N<:Number}
     _update_production_rates(species)
     @inbounds species.rates.ω̇.dT[] = sum(r.rates.q.dT[] * ν for (r, ν) in species.inreactions; init=zero(N))
+    return nothing
+end
+
+function _update_production_rates(::Val{:dP}, species::AbstractSpecies{N}) where {N<:Number}
+    _update_production_rates(species)
+    @inbounds species.rates.ω̇.dP[] = sum(r.rates.q.dP[] * ν for (r, ν) in species.inreactions; init=zero(N))
     return nothing
 end
 

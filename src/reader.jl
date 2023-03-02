@@ -107,7 +107,8 @@ function _find_species(k::Int, species::Symbol, thermo::T, transport::Maybe{T}, 
     thermodynamics_parameters = find_thermodynamic_parameters(species, thermo, N)
     return Species(k, species, Pair{Reaction{N, Species{N}}, N}[], thermodynamics_parameters..., transport_parameters,
         (; zip((:cₚ, :h, :s), Tuple((; zip((:val, :dT), (zeros(N, 1) for _ in OneTo(2)))...) for _ in OneTo(3)))...), 
-        (; zip((:ω̇,), tuple((; zip((:val, :dT, :dC), (zeros(N, 1), zeros(N, 1), zeros(N, 0)))...)))...))
+        (; zip((:ω̇,), tuple((; zip((:val, :dT, :dP, :dC), (zeros(N, 1), zeros(N, 1), zeros(N, 1), zeros(N, 0)))...)))...)
+    )
 end
 
 function _find_species(k::Int, species::Dict, N::Type{<:Number})
@@ -118,7 +119,8 @@ function _find_species(k::Int, species::Dict, N::Type{<:Number})
     thermodynamic_parameters = find_thermodynamic_parameters(species["thermo"], N)
     return Species(k, name, Pair{Reaction{N, Species{N}}, N}[], composition, weight, thermodynamic_parameters, nothing,
         (; zip((:cₚ, :h, :s), Tuple((; zip((:val, :dT), (zeros(N, 1) for _ in OneTo(2)))...) for _ in OneTo(3)))...), 
-        (; zip((:ω̇,), tuple((; zip((:val, :dT, :dC), (zeros(N, 1), zeros(N, 1), zeros(N, 0)))...)))...))
+        (; zip((:ω̇,), tuple((; zip((:val, :dT, :dP, :dC), (zeros(N, 1), zeros(N, 1), zeros(N, 1), zeros(N, 0)))...)))...)
+    )
 end
 
 #=
@@ -178,14 +180,14 @@ function _combine_moles!(pairs::Vector{<:Pair}, species::Species)
 end
 
 combine_moles!(pairs::Vector{<:Pair}) = foreach(pair -> count(otherpair -> isequal(otherpair.first, pair.first), pairs) > 1 && _combine_moles!(pairs, pair.first), pairs)
-
+remove_rbracket(s::AbstractString) = replace(s, r"\(\+\w+\K\)" => "") # temporary
 #=
 Decomposes the given `reaction` into pairs of species and number of moles, for both of reactants and products.
 =#
 function decompose(reaction::AbstractString, species_list::Vector{Species{N}}) where {N<:Number}
     sides = split(reaction, r"\s*<?=>?\s*", keepempty=false) ## left and right side of the equation
-    sides_components = Tuple(remove_spaces(side) |> side -> split(side, r"\+|\(\+|(?<![S|L|G])\)"i; keepempty=false) for side in sides) ## products or reactants
-    species_moles = Tuple(Pair{Species{N},N}[Pair(parse_moles(s, pair, species_list)...) for pair in components if pair ≠ "M"] for (s, components) in enumerate(sides_components))
+    sides_components = Tuple((remove_rbracket ∘ remove_spaces)(side) |> side -> split(side, r"\+|\(\+"i; keepempty=false) for side in sides) ## products or reactants
+    species_moles = Tuple(Pair{Species{N}, N}[Pair(parse_moles(s, pair, species_list)...) for pair in components if pair ≠ "M"] for (s, components) in enumerate(sides_components))
     foreach(combine_moles!, species_moles)
     return species_moles
 end
@@ -201,8 +203,8 @@ find_auxillaries(type::Symbol, data::AbstractString, N::Type{<:Number}) = (isequ
 #=
 Finds the `PLOG` parameters of an `ElementaryReaction` in the given reaction `data`. Returns a `Plog` object with the found parameters.
 =#
-find_plog(data::AbstractString, order::Int, N::Type{<:Number}) = Plog(([parse(N, m[p].match) for m in partition(_eachmatch(:plog, data), 4)] for p in OneTo(4))...; order)
-find_plog(plogs::Vector{<:Dict}, order::Int, N::Type{<:Number}) = Plog{N}([plogs[p]["P"] |> remove_spaces |> uparse |> Fix1(ustrip, u"Pa") for p in eachindex(plogs)], [plogs[p] |> Fix2(get_arrhenius, order) for p in eachindex(plogs)])
+find_plog(data::AbstractString, order::Real, N::Type{<:Number}) = Plog(([parse(N, m[p].match) for m in partition(_eachmatch(:plog, data), 4)] for p in OneTo(4))...; order)
+find_plog(plogs::Vector{<:Dict}, order::Real, N::Type{<:Number}) = Plog{N}([plogs[p]["P"] |> remove_spaces |> uparse |> Fix1(ustrip, u"Pa") for p in eachindex(plogs)], [plogs[p] |> Fix2(get_arrhenius, order) for p in eachindex(plogs)])
 
 #=
 Finds the enhancement factors in the given reaction `data`. Returns vector of pairs with species index as keys and enhancement factors as values.
@@ -234,8 +236,8 @@ function find_enhancements(data::Union{AbstractString, Dict}, species_list::Vect
     return enhancements
 end
 
-order(part::Vector{<:Pair}) = sum(Int ∘ abs ∘ last, part)
-unitfy_rate(A::Number, order::Int, l::String, q::String) = uparse("(m^3/kmol)^($order-1)/s") |> Fix2(ustrip, A * uparse("($l^3/$q)^($order-1)/s"))
+order(part::Vector{<:Pair}) = sum(abs ∘ last, part)
+unitfy_rate(A::Number, order::Real, l::String, q::String) = uparse("(m^3/kmol)^($order-1)/s") |> Fix2(ustrip, A * uparse("($l^3/$q)^($order-1)/s"))
 unitfy_activation_energy(E::Number, e::String) = ustrip(uparse("cal/mol"), E * uparse("$e"))
 #=
 Finds the kinetic parameters of an `ElementaryReaction` in the given reaction `data`.
@@ -299,7 +301,7 @@ Find the reactions of the given kinetics `data`. Return the reactions found as a
 =#
 function _find_reaction(i::Int, data::RegexMatch, species::Vector{Species{N}}) where {N<:Number}
     K = length(species)
-    duals = (; zip((:kf, :kr, :q), ((; zip((:val, :dT, :dC), (zeros(N, 1), zeros(N, 1), zeros(N, K)))...) for _ in OneTo(3)))...)
+    duals = (; zip((:kf, :kr, :q), ((; zip((:val, :dT, :dP, :dC), (zeros(N, 1), zeros(N, 1), zeros(N, 1), zeros(N, K)))...) for _ in OneTo(3)))...)
     
     reaction_data, reaction_string = data
     equation = Symbol(reaction_string)
@@ -318,14 +320,14 @@ end
 
 function _find_reaction(i::Int, reaction::Dict, species::Vector{Species{N}}, mechunits::Dict) where {N<:Number}
     K = length(species)
-    duals = (; zip((:kf, :kr, :q), ((; zip((:val, :dT, :dC), (zeros(N, 1), zeros(N, 1), zeros(N, K)))...) for _ in OneTo(3)))...)
+    duals = (; zip((:kf, :kr, :q), ((; zip((:val, :dT, :dP, :dC), (zeros(N, 1), zeros(N, 1), zeros(N, 1), zeros(N, K)))...) for _ in OneTo(3)))...)
 
     reaction_string = reaction["equation"]
     equation = Symbol(reaction_string)
 
     isreversible = check_reversibility(reaction_string)
     components = decompose(reaction_string, species)
-    order = sum(last, flatten(components))
+    order = sum(last, flatten(components)) 
 
     Type = find_type(reaction_string, components)
 

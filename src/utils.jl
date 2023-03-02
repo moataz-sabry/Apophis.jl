@@ -8,8 +8,8 @@ export
 _match(what::Symbol, data::AbstractString) = match(regextionary[what], data)
 _eachmatch(what::Symbol, data::AbstractString) = eachmatch(regextionary[what], data)
 
-Base.show(io::IO, s::Species) = print(io, s.formula)
-Base.show(io::IO, r::AbstractReaction) = print(io, r.equation)
+Base.show(io::IO, species::Species) = print(io, species.formula)
+Base.show(io::IO, reaction::AbstractReaction) = print(io, reaction.equation)
 
 Base.showarg(io::IO, ::Vector{<:Gas{N}}, toplevel) where {N<:Number} = print(io, "Vector{Gas{$N}}")
 
@@ -127,6 +127,7 @@ entropies(gas::Gas, v::Val=Val(:val); in=nothing, view=true) = (view ? mapview :
 production_rate(gas::Gas, s::Union{String, Symbol}, v::Val=Val(:val); in=nothing) = species(gas, s) |> s -> production_rate(s, v, in)
 production_rate(species::Species, ::Val{:val}=Val(:val); in=nothing) = species.rates.ω̇.val[] * (isnothing(in) || ustrip(in, 1u"kmol/(m^3*s)"))
 production_rate(species::Species, ::Val{:dT}; in=nothing) = species.rates.ω̇.dT[] * (isnothing(in) || ustrip(in, 1u"kmol/(m^3*K*s)"))
+production_rate(species::Species, ::Val{:dP}; in=nothing) = species.rates.ω̇.dP[] * (isnothing(in) || ustrip(in, 1u"kmol/(m^3*Pa*s)"))
 production_rate(species::Species, ::Val{:dC}; in=nothing) = species.rates.ω̇.dC
 production_rates(gas::Gas, v::Val=Val(:val); in=nothing, view=true) = (view ? mapview : map)(s -> production_rate(s, v; in), species(gas))
 production_rates(gas::Gas, v::Val{:dC}; in=nothing, view=true) = (view ? mapview : map)(s -> production_rate(s, v; in), species(gas)) |> Fix2((view ? combinedimsview : combinedims), 1)
@@ -137,18 +138,21 @@ reaction(gas::Gas, r::Union{String, Symbol}) = assign(reactions(gas), r)
 
 forward_rate(reaction::AbstractReaction, ::Val{:val}=Val(:val)) = reaction.rates.kf.val[]
 forward_rate(reaction::AbstractReaction, ::Val{:dT}) = reaction.rates.kf.dT[]
+forward_rate(reaction::AbstractReaction, ::Val{:dP}) = reaction.rates.kf.dP[]
 forward_rate(reaction::AbstractReaction, ::Val{:dC}) = reaction.rates.kf.dC
 forward_rates(gas::Gas, v::Val=Val(:val); view=true) = (view ? mapview : map)(r -> forward_rate(r, v), reactions(gas))
 forward_rates(gas::Gas, v::Val{:dC}; view=true) = (view ? mapview : map)(r -> forward_rate(r, v), reactions(gas)) |> Fix2((view ? combinedimsview : combinedims), 1)
 
 reverse_rate(reaction::AbstractReaction, ::Val{:val}=Val(:val)) = reaction.rates.kr.val[]
 reverse_rate(reaction::AbstractReaction, ::Val{:dT}) = reaction.rates.kr.dT[]
+reverse_rate(reaction::AbstractReaction, ::Val{:dP}) = reaction.rates.kr.dP[]
 reverse_rate(reaction::AbstractReaction, ::Val{:dC}) = reaction.rates.kr.dC
 reverse_rates(gas::Gas, v::Val=Val(:val); view=true) = (view ? mapview : map)(r -> reverse_rate(r, v), reactions(gas))
 reverse_rates(gas::Gas, v::Val{:dC}; view=true) = (view ? mapview : map)(r -> reverse_rate(r, v), reactions(gas)) |> Fix2((view ? combinedimsview : combinedims), 1)
 
 progress_rate(reaction::AbstractReaction, ::Val{:val}=Val(:val); in=nothing) = reaction.rates.q.val[] * (isnothing(in) || ustrip(in, 1u"kmol/(m^3*s)"))
 progress_rate(reaction::AbstractReaction, ::Val{:dT}; in=nothing) = reaction.rates.q.dT[] * (isnothing(in) || ustrip(in, 1u"kmol/(m^3*K*s)"))
+progress_rate(reaction::AbstractReaction, ::Val{:dP}; in=nothing) = reaction.rates.q.dP[] * (isnothing(in) || ustrip(in, 1u"kmol/(m^3*Pa*s)"))
 progress_rate(reaction::AbstractReaction, ::Val{:dC}; in=nothing) = reaction.rates.q.dC
 progress_rates(gas::Gas, v::Val=Val(:val); view=true) = (view ? mapview : map)(r -> progress_rate(r, v), reactions(gas))
 progress_rates(gas::Gas, v::Val{:dC}; view=true) = (view ? mapview : map)(r -> progress_rate(r, v), reactions(gas)) |> Fix2((view ? combinedimsview : combinedims), 1)

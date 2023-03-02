@@ -22,7 +22,7 @@ const d = 0.14
 const Maybe{T} = Union{T, Nothing}
 const Energies{N<:Number} = NamedTuple{(:val, :dT), Tuple{Vector{N}, Vector{N}}}
 const Thermodynamics{N<:Number} = NamedTuple{(:cₚ, :h, :s), NTuple{3, Energies{N}}}
-const Rates{N<:Number} = NamedTuple{(:val, :dT, :dC), NTuple{3, Vector{N}}}
+const Rates{N<:Number} = NamedTuple{(:val, :dT, :dP, :dC), NTuple{4, Vector{N}}}
 const SpeciesRates{N<:Number} = NamedTuple{(:ω̇,), Tuple{Rates{N}}}
 const ReactionRates{N<:Number} = NamedTuple{(:kf, :kr, :q), NTuple{3, Rates{N}}}
 

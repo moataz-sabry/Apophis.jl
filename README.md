@@ -1,5 +1,5 @@
 # Apophis
-Welcome to Apophis! This package is designed to provide sensitivity analysis of combustion processes using efficient and accurate derivatives. It is built to be fast, reliable, and easy to use, with a range of features and tools that can help to get the most out of combustion simulations.
+Welcome to Apophis! This package is designed to provide sensitivity analysis of combustion processes using efficient and accurate derivatives. It is built to be fast, reliable, and easy to use; but still early in development!
 
 ## Installation
 ```julia
